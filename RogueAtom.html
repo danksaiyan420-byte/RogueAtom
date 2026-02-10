@@ -1,0 +1,3207 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+ <title>Rogue Atom</title>
+ <style>
+ :root{
+ --bg0:#03030a;
+ --bg1:#070a22;
+ --text: rgba(255,255,255,0.92);
+ --muted: rgba(255,255,255,0.72);
+ --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+ }
+ html, body { height: 100%; margin: 0; background: radial-gradient(1100px 900px at 50% 18%, var(--bg1), var(--bg0)); color: var(--text); font-family: var(--font); }
+ * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+ .arenaWrap{
+ position:fixed;
+ inset:0;
+ padding-top: env(safe-area-inset-top, 0px);
+ padding-right: env(safe-area-inset-right, 0px);
+ padding-bottom: env(safe-area-inset-bottom, 0px);
+ padding-left: env(safe-area-inset-left, 0px);
+ background:
+ radial-gradient(820px 620px at 50% 55%, rgba(255,80,220,0.12), transparent 60%),
+ radial-gradient(720px 560px at 50% 60%, rgba(60,255,190,0.10), transparent 65%),
+ radial-gradient(760px 640px at 50% 25%, rgba(120,170,255,0.12), transparent 55%);
+ touch-action:none;
+ overflow:hidden;
+ }
+ canvas{ width:100%; height:100%; display:block; }
+ .overlayLayer{ position:absolute; inset:0; pointer-events:none; }
+
+ /* Minimal HUD (no KI) */
+ .hud{
+ pointer-events:auto;
+ position:absolute;
+ left: 10px;
+ top: 10px;
+ width: min(340px, 78vw);
+ display:flex;
+ flex-direction:column;
+ gap:8px;
+ }
+ .hudRow{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+ .title{
+ font-weight: 950;
+ font-size: 14px;
+ letter-spacing:0.2px;
+ display:flex;
+ align-items:center;
+ gap:8px;
+ text-shadow: 0 2px 14px rgba(120,170,255,0.22);
+ white-space:nowrap;
+ }
+ /* Title hidden */
+ .title{ display:none !important; }
+ .chip{
+ font-size: 11px;
+ padding: 6px 10px;
+ border-radius: 999px;
+ background: rgba(0,0,0,0.22);
+ border: 1px solid rgba(255,255,255,0.12);
+ backdrop-filter: blur(8px);
+ color: rgba(255,255,255,0.88);
+ white-space:nowrap;
+ box-shadow: 0 14px 46px rgba(0,0,0,0.22);
+ }
+ .barLine{ display:flex; align-items:center; gap:8px; }
+ .barName{
+ width: 26px; font-size: 11px; font-weight: 900;
+ color: rgba(255,255,255,0.82);
+ text-shadow: 0 1px 10px rgba(0,0,0,0.45);
+ }
+ .bar{
+ flex:1; height: 9px; border-radius: 999px;
+ background: rgba(255,255,255,0.08);
+ border: 1px solid rgba(255,255,255,0.12);
+ overflow:hidden;
+ box-shadow: 0 10px 34px rgba(0,0,0,0.25);
+ backdrop-filter: blur(8px);
+ }
+ .fill{ height:100%; width:50%; border-radius:999px; transition: width 140ms linear; }
+ .fill.hp{ background: linear-gradient(90deg, rgba(60,255,190,0.98), rgba(70,200,255,0.94)); box-shadow: 0 0 24px rgba(60,255,190,0.30); }
+ .fill.xp{ background: linear-gradient(90deg, rgba(255,230,120,0.98), rgba(255,120,220,0.94)); box-shadow: 0 0 24px rgba(255,120,220,0.22); }
+ .barVal{
+ min-width: 64px; text-align:right; font-size: 11px;
+ color: rgba(255,255,255,0.80);
+ text-shadow: 0 1px 10px rgba(0,0,0,0.45);
+ }
+ .statsStrip{ display:flex; gap:8px; flex-wrap:wrap; }
+ .statPill{
+ font-size: 11px; padding: 6px 10px; border-radius: 999px;
+ background: rgba(0,0,0,0.20);
+ border: 1px solid rgba(255,255,255,0.10);
+ backdrop-filter: blur(8px);
+ color: rgba(255,255,255,0.84);
+ white-space:nowrap;
+ box-shadow: 0 14px 46px rgba(0,0,0,0.18);
+ }
+
+ /* Controls (vertical) */
+ .controls{
+ pointer-events:auto;
+ position:absolute;
+ right: 10px;
+ top: 10px;
+ display:flex;
+ flex-direction: column;
+ gap:10px;
+ align-items:flex-end;
+ }
+ .ctrlBtn{
+ width: 54px;
+ height: 54px;
+ border-radius: 16px;
+ background: rgba(0,0,0,0.22);
+ border: 1px solid rgba(255,255,255,0.14);
+ backdrop-filter: blur(10px);
+ box-shadow: 0 14px 46px rgba(0,0,0,0.32);
+ display:grid;
+ place-items:center;
+ cursor:pointer;
+ user-select:none;
+ touch-action: manipulation;
+ }
+ .ctrlBtn:active{ transform: translateY(1px) scale(0.99); }
+ .ctrlBtn.primary{ border-color: rgba(120,170,255,0.42); }
+ .ctrlBtn.danger{ border-color: rgba(255,90,120,0.42); }
+ .ctrlIcon{ font-size: 20px; filter: drop-shadow(0 0 16px rgba(255,255,255,0.30)); }
+
+ /* Bottom auto icons strip (no box) */
+ .autoStrip{
+ pointer-events:none;
+ position:absolute;
+ left: 10px;
+ right: 10px;
+ bottom: 10px;
+ display:flex;
+ align-items:flex-end;
+ justify-content:space-between;
+ gap:10px;
+ }
+ .autoLeft{ display:flex; align-items:flex-end; gap:10px; min-width:0; }
+ .autoTitle{
+ font-weight: 950;
+ font-size: 13px;
+ letter-spacing:0.2px;
+ text-shadow: 0 2px 14px rgba(255,255,255,0.10);
+ white-space:nowrap;
+ margin-bottom: 6px;
+ }
+ .iconRow{
+ display:flex;
+ gap:10px;
+ align-items:flex-end;
+ flex-wrap:wrap;
+ overflow-x:visible;
+ scrollbar-width:none;
+ max-width: 100%;
+ padding-bottom: 2px;
+ }
+ .iconRow::-webkit-scrollbar{ display:none; }
+ .atkIcon{
+ flex: 0 0 auto;
+ width: 68px;
+ height: 86px;
+ display:flex;
+ flex-direction:column;
+ align-items:center;
+ justify-content:flex-end;
+ gap:6px;
+ filter: drop-shadow(0 18px 44px rgba(0,0,0,0.40));
+ }
+ .iconTile{
+ position:relative;
+ width: 68px;
+ height: 68px;
+ border-radius: 18px;
+ background: rgba(0,0,0,0.18);
+ border: 1px solid rgba(255,255,255,0.12);
+ backdrop-filter: blur(10px);
+ display:grid;
+ place-items:center;
+ overflow:hidden;
+ }
+ .iconTile::before{
+ content:"";
+ position:absolute;
+ inset:-40%;
+ background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.28), transparent 55%);
+ transform: rotate(12deg);
+ opacity:0.5;
+ pointer-events:none;
+ }
+ 
+  .iconSvg{
+    width: 34px;
+    height: 34px;
+    z-index:2;
+    color: rgba(255,255,255,0.95);
+    filter: drop-shadow(0 0 18px rgba(255,255,255,0.20));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .iconSvg svg{ width: 34px; height: 34px; }
+
+ .iconEmoji{
+ font-size: 26px;
+ line-height: 1;
+ filter: drop-shadow(0 0 18px rgba(255,255,255,0.25));
+ z-index:2;
+ }
+ .cdOverlay{
+ position:absolute;
+ inset:0;
+ background: rgba(0,0,0,0.70);
+ z-index:3;
+ opacity:0;
+ transition: opacity 80ms linear;
+ }
+ .cdBar{
+ position:absolute;
+ left:8px; right:8px; bottom:8px;
+ height: 7px;
+ border-radius: 999px;
+ background: rgba(255,255,255,0.10);
+ border: 1px solid rgba(255,255,255,0.10);
+ overflow:hidden;
+ z-index:4;
+ }
+ .cdFill{ height:100%; width:100%; border-radius:999px; }
+ .iconLabel{
+ font-size: 11px;
+ color: rgba(255,255,255,0.86);
+ text-shadow: 0 1px 10px rgba(0,0,0,0.55);
+ white-space:nowrap;
+ max-width: 72px;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ }
+ .tipChip{ margin-bottom: 6px; }
+
+ .toast{
+ position:absolute;
+ left: 50%;
+ top: 12px;
+ transform: translateX(-50%);
+ background: rgba(0,0,0,0.26);
+ border: 1px solid rgba(255,255,255,0.12);
+ padding: 10px 12px;
+ border-radius: 999px;
+ backdrop-filter: blur(10px);
+ font-size: 13px;
+ color: rgba(255,255,255,0.92);
+ box-shadow: 0 16px 50px rgba(0,0,0,0.35);
+ opacity:0;
+ pointer-events:none;
+ transition: opacity 200ms ease, transform 200ms ease;
+ max-width: 92%;
+ text-align:center;
+ z-index: 5;
+ }
+ .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+ .levelOverlay{
+ position:absolute;
+ inset:0;
+ display:none;
+ align-items:center;
+ justify-content:center;
+ background: rgba(0,0,0,0.55);
+ backdrop-filter: blur(10px);
+ padding: 14px;
+ z-index: 10;
+ pointer-events:auto;
+ }
+ .levelOverlay.show{ display:flex; }
+ .modal{
+ width: min(520px, 100%);
+ border-radius: 22px;
+ background: rgba(10, 12, 26, 0.86);
+ border: 1px solid rgba(255,255,255,0.14);
+ box-shadow: 0 20px 90px rgba(0,0,0,0.70);
+ padding: 14px;
+ }
+ .modal h2{ margin: 0 0 8px; font-size: 16px; font-weight: 950; letter-spacing: 0.2px; }
+ .modal p{ margin: 0 0 12px; font-size: 13px; color: rgba(255,255,255,0.74); line-height: 1.35; }
+ .choices{ display:grid; grid-template-columns: 1fr; gap: 10px; }
+ .choice{
+ border-radius: 18px;
+ padding: 12px;
+ background: rgba(255,255,255,0.06);
+ border: 1px solid rgba(255,255,255,0.12);
+ display:flex;
+ flex-direction:column;
+ gap:6px;
+ cursor:pointer;
+ user-select:none;
+ touch-action: manipulation;
+ }
+ .choice:active{ transform: translateY(1px) scale(0.99); }
+ .choice .topline{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:10px;
+ font-weight: 950;
+ letter-spacing: 0.2px;
+ font-size: 14px;
+ }
+ .choice .meta{ font-size: 12px; color: rgba(255,255,255,0.72); line-height: 1.25; }
+
+ 
+ .modalControls{
+ display:flex;
+ gap:10px;
+ align-items:center;
+ justify-content:space-between;
+ margin: 10px 0 12px;
+ flex-wrap:wrap;
+ }
+ .miniBtn{
+ pointer-events:auto;
+ font-size: 12px;
+ padding: 9px 12px;
+ border-radius: 14px;
+ background: rgba(255,255,255,0.06);
+ border: 1px solid rgba(255,255,255,0.14);
+ color: rgba(255,255,255,0.86);
+ user-select:none;
+ touch-action: manipulation;
+ cursor:pointer;
+ box-shadow: 0 14px 46px rgba(0,0,0,0.22);
+ backdrop-filter: blur(10px);
+ white-space:nowrap;
+ }
+ .miniBtn:active{ transform: translateY(1px) scale(0.99); }
+ .miniBtn.disabled{
+ opacity: 0.45;
+ filter: grayscale(0.4);
+ cursor: default;
+ }
+
+    /* UI label cleanup */
+    #runTitle{ display:none !important; }
+    #modeChip{ display:none !important; }
+    .autoTitle{ display:none !important; }
+    #tipChip{ display:none !important; }
+
+    /* Endless mode: remove wave label */
+    .waveLabel, .wave, #waveTitle, #waveLabel { display:none !important; }
+
+    @media (max-width: 420px){
+ .ctrlBtn{ width: 52px; height: 52px; border-radius: 15px; }
+ .atkIcon{ width: 64px; height: 82px; }
+ .iconTile{ width: 64px; height: 64px; border-radius: 17px; }
+ }
+ 
+
+/* --- Title Screen --- */
+.titleScreen{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:14px;
+  z-index: 50;
+  pointer-events:auto;
+  background:
+    radial-gradient(900px 700px at 50% 35%, rgba(120,170,255,0.18), transparent 60%),
+    radial-gradient(760px 620px at 55% 62%, rgba(255,80,220,0.16), transparent 62%),
+    radial-gradient(820px 640px at 45% 70%, rgba(60,255,190,0.12), transparent 66%),
+    rgba(0,0,0,0.40);
+  backdrop-filter: blur(10px);
+}
+.titleCard{
+  width: min(560px, 92vw);
+  padding: 26px 22px 22px;
+  border-radius: 26px;
+  background: rgba(0,0,0,0.26);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 28px 90px rgba(0,0,0,0.55);
+  text-align:center;
+  position:relative;
+  z-index:1;
+  overflow:hidden;
+}
+.titleCard::before{
+  content:"";
+  position:absolute;
+  inset:-40%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 55%),
+    radial-gradient(circle at 60% 70%, rgba(255,255,255,0.10), transparent 60%);
+  transform: rotate(14deg);
+  opacity:0.55;
+  pointer-events:none;
+}
+.titleName{
+  position:relative;
+  font-weight: 1000;
+  letter-spacing: 0.8px;
+  font-size: clamp(34px, 8.4vw, 56px);
+  line-height: 1.05;
+  margin: 2px 0 6px;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 22px rgba(120,170,255,0.30),
+    0 0 28px rgba(255,80,220,0.18),
+    0 22px 80px rgba(0,0,0,0.60);
+}
+.titleSub{
+  position:relative;
+  font-size: 13px;
+  color: rgba(255,255,255,0.78);
+  letter-spacing: 0.2px;
+}
+.tapToStart{
+  position:relative;
+  margin-top: 18px;
+  font-weight: 950;
+  font-size: 14px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.90);
+  padding: 12px 14px;
+  border-radius: 999px;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.18);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.35);
+  animation: pulseTap 1.25s ease-in-out infinite;
+}
+.tapDot{
+  width:10px; height:10px; border-radius: 999px;
+  background: rgba(255,230,120,0.95);
+  box-shadow: 0 0 18px rgba(255,230,120,0.45);
+}
+@keyframes pulseTap{
+  0%,100%{ transform: translateY(0px) scale(1); filter: drop-shadow(0 0 14px rgba(120,170,255,0.25)); opacity: 0.92; }
+  50%{ transform: translateY(-1px) scale(1.02); filter: drop-shadow(0 0 22px rgba(255,80,220,0.22)); opacity: 1; }
+}
+.titleHintRow{
+  margin-top: 14px;
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+/* --- Title Screen: hide tooltips/hints row --- */
+#titleHints{ display:none !important; }
+
+.titleHint{
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.78);
+}
+.titleHide{
+  opacity: 0;
+  pointer-events:none;
+  transition: opacity 160ms ease;
+}
+
+/* --- Mobile Title Center Fix (raise title on small screens) --- */
+@media (max-width: 600px){
+  .titleScreen{
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .titleCard{
+    transform: translateY(-10vh);
+  }
+}
+
+
+/* --- Title Menu Buttons --- */
+.titleMenu{
+  position:relative;
+  margin-top: 18px;
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.menuBtn{
+  pointer-events:auto;
+  font-weight: 1000;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 14px;
+  padding: 14px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.18);
+  color: rgba(255,255,255,0.92);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.35);
+  backdrop-filter: blur(10px);
+  cursor:pointer;
+  user-select:none;
+  touch-action: manipulation;
+  min-width: 160px;
+  animation: pulseTap 1.25s ease-in-out infinite;
+}
+.menuBtn:active{ transform: translateY(1px) scale(0.99); }
+.menuBtn.primary{
+  border-color: rgba(120,170,255,0.42);
+  box-shadow:
+    0 0 22px rgba(120,170,255,0.14),
+    0 18px 60px rgba(0,0,0,0.35);
+}
+@media (max-width: 420px){
+  .menuBtn{ min-width: 150px; padding: 14px 16px; }
+}
+
+
+/* --- Title FX Canvas Fix (keeps particles + allows button clicks) --- */
+.titleFXCanvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  z-index:0;
+}
+.titleCard{ z-index:1; }
+
+
+/* --- Tutorial Coach Marks --- */
+.coachLayer{
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  pointer-events: auto;
+}
+.coachLayer.show{ display:block; }
+.coachDim{
+  position:absolute; inset:0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(2px);
+}
+.coachHighlight{
+  position:absolute;
+  border-radius: 18px;
+  border: 2px solid rgba(255,255,255,0.26);
+  box-shadow:
+    0 0 0 3px rgba(120,170,255,0.22),
+    0 0 40px rgba(120,170,255,0.16),
+    0 0 90px rgba(255,80,220,0.10);
+  background: rgba(255,255,255,0.03);
+  pointer-events: none;
+  transform: translate3d(0,0,0);
+}
+.coachBubble{
+  position:absolute;
+  width: min(340px, 86vw);
+  border-radius: 18px;
+  background: rgba(10, 12, 26, 0.92);
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 20px 90px rgba(0,0,0,0.70);
+  padding: 12px 12px 10px;
+}
+.coachBubble::before{
+  content:"";
+  position:absolute;
+  width: 12px; height: 12px;
+  background: rgba(10, 12, 26, 0.92);
+  border-left: 1px solid rgba(255,255,255,0.14);
+  border-top: 1px solid rgba(255,255,255,0.14);
+  transform: rotate(45deg);
+  top: -7px;
+  left: 26px;
+}
+.coachText{
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.88);
+}
+.coachActions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top: 10px;
+}
+.coachBtn{
+  font-weight: 950;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.16);
+  color: rgba(255,255,255,0.92);
+  cursor:pointer;
+  user-select:none;
+  touch-action: manipulation;
+}
+.coachBtn:active{ transform: translateY(1px) scale(0.99); }
+
+
+/* --- Hide top tips/toasts during gameplay --- */
+.toast{ display:none !important; }
+
+</style>
+</head>
+<body>
+ <div class="arenaWrap" id="arenaWrap">
+ <canvas id="c"></canvas>
+<div class="titleScreen" id="titleScreen" role="region" aria-label="Main menu">
+  <canvas id="titleFX" class="titleFXCanvas" aria-hidden="true"></canvas>
+  <div class="titleCard">
+    <div class="titleName">ROGUE ATOM</div>
+        <div class="titleMenu">
+      <button class="menuBtn primary" id="btnPlay" type="button">PLAY</button>
+      <button class="menuBtn" id="btnTutorial" type="button">TUTORIAL</button>
+    </div>
+    <div class="titleHintRow" id="titleHints">
+      <div class="titleHint">Supers auto-fire</div>
+      <div class="titleHint">Endless difficulty</div>
+      <div class="titleHint">Reroll x3 • Banish x3</div>
+    </div>
+  </div>
+</div>
+
+ <div class="overlayLayer" id="overlayLayer">
+ <div class="hud" id="hud">
+ <div class="hudRow">
+ <div class="title"><span style="filter: drop-shadow(0 0 18px rgba(120,170,255,0.46));">⚡</span><span id="runTitle"></span></div>
+ <div class="chip" id="waveChip">Wave 1</div>
+ <div class="chip" id="modeChip"></div>
+ </div>
+
+ <div class="barLine">
+ <div class="barName">HP</div>
+ <div class="bar"><div class="fill hp" id="hpFill"></div></div>
+ <div class="barVal" id="hpText">100/100</div>
+ </div>
+ <div class="barLine">
+ <div class="barName">XP</div>
+ <div class="bar"><div class="fill xp" id="xpFill"></div></div>
+ <div class="barVal" id="xpText">0/25</div>
+ </div>
+
+ <div class="statsStrip">
+ <div class="statPill">LV <span id="lvText">1</span></div>
+ <div class="statPill">POW <span id="powText">7</span></div>
+ <div class="statPill">Crit <span id="critText">8</span>%</div>
+ <div class="statPill">Regen <span id="regenText">1.0</span>/s</div>
+ </div>
+ </div>
+
+ <div class="controls" id="controls">
+ <div class="ctrlBtn primary" id="btnStart" title="Start / Pause"><div class="ctrlIcon">▶️</div></div>
+ <div class="ctrlBtn danger" id="btnReset" title="Reset"><div class="ctrlIcon">⟲</div></div>
+ </div>
+
+ <div class="autoStrip" id="autoStrip">
+ <div class="autoLeft">
+ <div class="autoTitle"></div>
+ <div class="iconRow" id="iconRow"></div>
+ </div>
+ <div class="chip tipChip" id="tipChip"></div>
+ </div>
+
+ <div class="toast" id="toast"></div>
+
+ <div class="levelOverlay" id="overlay">
+ <div class="modal">
+ <h2 id="modalTitle">Level Up!</h2>
+ <p id="modalDesc">Pick 1 upgrade. Enemies are paused while you choose.</p>
+ <div class="modalControls">
+ <div class="miniBtn" id="rerollBtn">🔄 Reroll (<span id="rerollLeft">3</span>)</div>
+ <div class="miniBtn" id="banishInfo">🗑️ Banish (<span id="banishLeft">3</span>)</div>
+ </div>
+ <div class="choices" id="choices"></div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+<script>
+ const canvas = document.getElementById('c');
+ const ctx = canvas.getContext('2d');
+
+ const ui = {
+ hpFill: document.getElementById('hpFill'),
+ hpText: document.getElementById('hpText'),
+ xpFill: document.getElementById('xpFill'),
+ xpText: document.getElementById('xpText'),
+ lvText: document.getElementById('lvText'),
+ powText: document.getElementById('powText'),
+ critText: document.getElementById('critText'),
+ regenText: document.getElementById('regenText'),
+ waveChip: document.getElementById('waveChip'),
+ btnStart: document.getElementById('btnStart'),
+ btnReset: document.getElementById('btnReset'),
+ overlay: document.getElementById('overlay'),
+ choices: document.getElementById('choices'),
+ toast: document.getElementById('toast'),
+ runTitle: document.getElementById('runTitle'),
+ arenaWrap: document.getElementById('arenaWrap'),
+ iconRow: document.getElementById('iconRow'),
+ modalTitle: document.getElementById('modalTitle'),
+ modalDesc: document.getElementById('modalDesc'),
+ rerollBtn: document.getElementById('rerollBtn'),
+ rerollLeft: document.getElementById('rerollLeft'),
+ banishInfo: document.getElementById('banishInfo'),
+ banishLeft: document.getElementById('banishLeft'),
+ titleScreen: document.getElementById('titleScreen'),
+ titleFX: document.getElementById('titleFX'),
+ };
+
+
+function hideTitleScreen(){
+  if(!ui.titleScreen) return;
+  ui.titleScreen.classList.add('titleHide');
+  __titleFXStop = true;
+  // ensure it's fully removed from input quickly
+  setTimeout(()=>{ if(ui.titleScreen) ui.titleScreen.style.display = "none"; }, 180);
+}
+
+ 
+// --- Title Screen FX (exploding particles) ---
+let __titleFXRunning = false;
+let __titleFXStop = false;
+function startTitleFX(){
+  if(__titleFXRunning) return;
+  const cv = ui.titleFX;
+  if(!cv) return;
+  const ctx = cv.getContext('2d');
+  if(!ctx) return;
+  __titleFXRunning = true;
+  __titleFXStop = false;
+
+  const parts = [];
+  function resize(){
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const rect = cv.getBoundingClientRect();
+    cv.width = Math.max(1, Math.floor(rect.width * dpr));
+    cv.height = Math.max(1, Math.floor(rect.height * dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  window.addEventListener('resize', resize, {passive:true});
+
+  let last = performance.now();
+  let burstAcc = 0;
+
+  function spawnBurst(){
+    const w = cv.getBoundingClientRect().width;
+    const h = cv.getBoundingClientRect().height;
+    // bursts happen mostly behind the card, spread across screen
+    const x = Math.random()*w;
+    const y = Math.random()*h;
+    const n = 18 + Math.floor(Math.random()*20);
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2;
+      const sp = 120 + Math.random()*420;
+      const hue = (Math.random()*360)|0;
+      parts.push({
+        x, y,
+        vx: Math.cos(a)*sp,
+        vy: Math.sin(a)*sp,
+        r: 1.8 + Math.random()*3.6,
+        life: 0.65 + Math.random()*0.55,
+        t: 0,
+        hue,
+        rot: Math.random()*Math.PI*2,
+        vr: (-2 + Math.random()*4),
+      });
+    }
+  }
+
+  function step(now){
+    if(__titleFXStop || !ui.titleScreen || ui.titleScreen.style.display === "none") return;
+    const dt = Math.min(0.033, (now-last)/1000);
+    last = now;
+    burstAcc += dt;
+
+    // spawn bursts rhythmically
+    while(burstAcc > 0.22){
+      burstAcc -= 0.22;
+      spawnBurst();
+    }
+
+    const w = cv.getBoundingClientRect().width;
+    const h = cv.getBoundingClientRect().height;
+
+    ctx.clearRect(0,0,w,h);
+    ctx.globalCompositeOperation = 'lighter';
+
+    // subtle background haze
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0,0,w,h);
+
+    for(let i=parts.length-1;i>=0;i--){
+      const p = parts[i];
+      p.t += dt;
+      const k = p.t / p.life;
+      if(k >= 1){
+        parts.splice(i,1);
+        continue;
+      }
+      // motion + drag
+      p.vx *= Math.pow(0.12, dt);
+      p.vy *= Math.pow(0.12, dt);
+      p.vy += 320*dt; // gentle fall
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.rot += p.vr*dt;
+
+      const fade = 1 - k;
+      const alpha = 0.55*fade;
+      const r = p.r * (0.9 + 0.4*fade);
+
+      // core
+      ctx.beginPath();
+      ctx.fillStyle = `hsla(${p.hue}, 100%, 65%, ${alpha})`;
+      ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+      ctx.fill();
+
+      // glow ring
+      ctx.beginPath();
+      ctx.strokeStyle = `hsla(${p.hue}, 100%, 70%, ${alpha*0.65})`;
+      ctx.lineWidth = 2.2;
+      ctx.arc(p.x, p.y, r*2.4, 0, Math.PI*2);
+      ctx.stroke();
+
+      // tiny streak
+      ctx.beginPath();
+      ctx.strokeStyle = `hsla(${p.hue}, 100%, 75%, ${alpha*0.55})`;
+      ctx.lineWidth = 1.2;
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx*0.03, p.y - p.vy*0.03);
+      ctx.stroke();
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+(function initTitleFX(){
+  // start immediately; it auto-stops when title hides
+  startTitleFX();
+})();
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+ function lerp(a,b,t){ return a + (b-a)*t; }
+ function rand(a,b){ return a + Math.random()*(b-a); }
+ function randi(a,b){ return Math.floor(rand(a,b+1)); }
+ function now(){ return performance.now(); }
+
+  function formatTime(sec){
+    sec = Math.max(0, sec|0);
+    const m = Math.floor(sec/60);
+    const s = sec%60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+ function dist(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return Math.hypot(dx,dy); }
+
+ function hsvToRgb(h,s,v){
+ h = (h%360+360)%360;
+ const c = v*s;
+ const x = c*(1-Math.abs((h/60)%2-1));
+ const m = v-c;
+ let r=0,g=0,b=0;
+ if(h<60){ r=c; g=x; b=0; }
+ else if(h<120){ r=x; g=c; b=0; }
+ else if(h<180){ r=0; g=c; b=x; }
+ else if(h<240){ r=0; g=x; b=c; }
+ else if(h<300){ r=x; g=0; b=c; }
+ else { r=c; g=0; b=x; }
+ return { r: Math.round((r+m)*255), g: Math.round((g+m)*255), b: Math.round((b+m)*255) };
+ }
+ function rgbaFromHsv(h,s,v,a){
+ const c = hsvToRgb(h,s,v);
+ return `rgba(${c.r},${c.g},${c.b},${a})`;
+ }
+
+ function resize(){
+ const rect = ui.arenaWrap.getBoundingClientRect();
+ const dpr = Math.min(2.2, window.devicePixelRatio || 1);
+ canvas.width = Math.floor(rect.width * dpr);
+ canvas.height = Math.floor(rect.height * dpr);
+ canvas.style.width = rect.width + 'px';
+ canvas.style.height = rect.height + 'px';
+ ctx.setTransform(dpr,0,0,dpr,0,0);
+ }
+ window.addEventListener('resize', resize);
+
+ const state = {
+ running:false,
+ pausedForChoice:false,
+
+ hasStarted:false,
+ gameOver:false,
+ last: now(),
+ dt: 0,
+
+ wave:1,
+ killsInWave:0,
+ killsToAdvance:8,
+
+    runTimeSec:0,
+
+ waveElapsed:0,
+ minWaveSeconds:5,
+
+ player: {
+ x:0, y:0, r:14,
+ maxHp:100, hp:100,
+ shield:0,
+ basePow:7,
+ crit:0.08,
+ regenHp:1.0,
+ armor:0.0,
+ },
+
+ xp:0,
+ xpToNext:25,
+ level:1,
+
+ enemies:[],
+ projectiles:[],
+ effects:[],
+ particles:[],
+ _particlePool:[],
+ _effectPool:[],
+ perf:{ fps:60, fpsSmooth:60, pMult:1 },
+ floatingText:[],
+
+ orbitals:[],
+ gravityWells:[],
+
+ _dmgBonus: 0,
+ _deathBloom: false,
+ _reactiveBarrier: false,
+ _reactiveBarrierCd: 0,
+
+ spawn: { timer:0, baseInterval: 720 },
+
+ abilityDefs:{},
+ autoAbilities:[],
+
+
+ maxSupers: 3,
+ _levelPickIds: null,
+ _pendingSuperId: null,
+ rerollsLeft: 3,
+ banishesLeft: 3,
+ _banished: {},
+_xpMult: 1,
+ _cdr: 1,
+
+ bgDots: [],
+ bgStreaks: [],
+ };
+
+ function showToast(msg){
+ ui.toast.textContent = msg;
+ ui.toast.classList.add('show');
+ clearTimeout(showToast._t);
+ showToast._t = setTimeout(()=> ui.toast.classList.remove('show'), 950);
+ }
+
+ 
+function showToastLong(msg, ms=2400){
+ ui.toast.textContent = msg;
+ ui.toast.classList.add('show');
+ clearTimeout(showToastLong._t);
+ showToastLong._t = setTimeout(()=> ui.toast.classList.remove('show'), ms);
+}
+
+// --- Tutorial Coach Marks (step-by-step, points to UI) ---
+const coach = {
+  layer: null,
+  hi: null,
+  bubble: null,
+  text: null,
+  ok: null,
+  _onOk: null,
+  _active: false,
+};
+
+function coachEnsure(){
+  if(coach.layer && coach.hi && coach.bubble && coach.text && coach.ok) return true;
+  coach.layer = document.getElementById('coachLayer');
+  coach.hi = document.getElementById('coachHighlight');
+  coach.bubble = document.getElementById('coachBubble');
+  coach.text = document.getElementById('coachText');
+  coach.ok = document.getElementById('coachOk');
+  return !!(coach.layer && coach.hi && coach.bubble && coach.text && coach.ok);
+}
+
+function coachHide(){
+  if(!coachEnsure()) return;
+  coach.layer.classList.remove('show');
+  coach.layer.setAttribute('aria-hidden','true');
+  coach._active = false;
+  coach._onOk = null;
+}
+
+function coachPlace(targetRect){
+  const pad = 10;
+  const vw = window.innerWidth || document.documentElement.clientWidth || 360;
+  const vh = window.innerHeight || document.documentElement.clientHeight || 640;
+
+  // highlight box
+  const r = {
+    left: targetRect.left - 8,
+    top:  targetRect.top  - 8,
+    width: targetRect.width + 16,
+    height: targetRect.height + 16,
+  };
+  coach.hi.style.left = r.left + "px";
+  coach.hi.style.top = r.top + "px";
+  coach.hi.style.width = Math.max(16, r.width) + "px";
+  coach.hi.style.height = Math.max(16, r.height) + "px";
+
+  // bubble preferred: below target; fallback above
+  const bw = Math.min(340, vw*0.86);
+  const bhEst = 140; // estimate; ok
+  let bx = Math.max(pad, Math.min(vw - bw - pad, r.left + r.width*0.5 - bw*0.5));
+  let by = r.top + r.height + 14;
+
+  // if overflow bottom, place above
+  if(by + bhEst > vh - pad){
+    by = Math.max(pad, r.top - bhEst - 16);
+    // arrow points down if above (flip)
+    coach.bubble.style.transform = "translate3d(0,0,0)";
+    coach.bubble.style.top = by + "px";
+    coach.bubble.style.left = bx + "px";
+    coach.bubble.classList.add('above');
+    coach.bubble.style.setProperty('--coachArrowTop', 'auto');
+  }else{
+    coach.bubble.classList.remove('above');
+    coach.bubble.style.top = by + "px";
+    coach.bubble.style.left = bx + "px";
+  }
+
+  // Move arrow roughly towards target center
+  const arrowX = Math.max(18, Math.min(bw - 24, (r.left + r.width*0.5) - bx));
+  coach.bubble.style.setProperty('--arrowLeft', arrowX + "px");
+
+  // Update arrow position using CSS vars (supported via inline styles)
+  // We'll directly set ::before via a tiny inline style trick:
+  coach.bubble.style.setProperty('--coach-arrow-left', arrowX + "px");
+}
+
+(function initCoachArrowVar(){
+  // patch bubble ::before left using CSS variable
+  const style = document.createElement('style');
+  style.textContent = `
+    .coachBubble::before{ left: var(--coach-arrow-left, 26px); }
+    .coachBubble.above::before{
+      top: auto;
+      bottom: -7px;
+      transform: rotate(225deg);
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
+function coachShowStep(targetEl, htmlText, okLabel="OK"){
+  return new Promise((resolve)=>{
+    if(!coachEnsure() || !targetEl) return resolve();
+    coach._active = true;
+    coach.layer.classList.add('show');
+    coach.layer.setAttribute('aria-hidden','false');
+    coach.text.innerHTML = htmlText;
+    coach.ok.textContent = okLabel;
+
+    const place = ()=>{
+      const rect = targetEl.getBoundingClientRect();
+      coachPlace(rect);
+    };
+    place();
+
+    // keep it aligned on resize/scroll
+    const onResize = ()=> place();
+    window.addEventListener('resize', onResize, {passive:true});
+    window.addEventListener('scroll', onResize, {passive:true});
+
+    coach._onOk = ()=>{
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onResize);
+      coachHide();
+      resolve();
+    };
+
+    // ensure single handler
+    coach.ok.onclick = ()=> coach._onOk && coach._onOk();
+    // clicking dim does nothing (forces OK)
+    coach.layer.onclick = (e)=>{ e.stopPropagation(); };
+  });
+}
+
+async function runCoachSequence(steps){
+  for(const s of steps){
+    await coachShowStep(s.el, s.text, s.ok || "OK");
+  }
+}
+function setCenterPlayer(){
+ const rect = canvas.getBoundingClientRect();
+ state.player.x = rect.width/2;
+ state.player.y = rect.height/2;
+ }
+
+ function findNearestEnemy(){
+ let best=null, bestD=1e9;
+ for(const e of state.enemies){
+ if(!e.targetable) continue;
+ // Prevent off-screen sniping: only target enemies once they enter the visible arena.
+ if(!e.targetable) continue;
+ const d = dist(e.x,e.y,state.player.x,state.player.y);
+ if(d > state.player.attackRange) continue;
+if(d < bestD){ bestD=d; best=e; }
+ }
+ return best;
+ }
+
+ function addFloatText(x,y,text,type="neutral"){
+ state.floatingText.push({ x,y,text,t:0,life:720,type });
+ }
+
+ function addEffectRing(x,y,r,life,hue){
+ state.effects.push({ kind:"ring", x,y,r,t:0,life,hue });
+ }
+ function addEffectNova(x,y,r,hue){
+ state.effects.push({ kind:"nova", x,y,r,t:0,life:560,hue });
+ }
+ function addEffectSpark(x,y,hue){
+ state.effects.push({ kind:"spark", x,y,t:0,life:260,hue });
+ }
+ function addEffectBeam(x,y,ux,uy,len,width,hue){
+ state.effects.push({ kind:"beam", x,y,ux,uy,len,width,t:0,life:260,hue });
+ }
+
+ const MAX_PARTICLES = 900;
+
+function allocParticle(){
+ return state._particlePool.length ? state._particlePool.pop() : {};
+}
+function freeParticle(p){
+ if(state._particlePool.length < 1800) state._particlePool.push(p);
+}
+
+function emitParticles(x,y, count, hueBase, speedMin, speedMax, lifeMin, lifeMax, sizeMin, sizeMax, spread=1){
+ // Adaptive multiplier only when FPS dips (keeps look in good FPS, prevents stutter in bad FPS)
+ const mult = state.perf?.pMult ?? 1;
+ const n = Math.max(1, Math.floor(count * mult * 0.72));
+ for(let i=0;i<n;i++){
+ if(state.particles.length >= MAX_PARTICLES) break;
+ const ang = rand(0, Math.PI*2);
+ const sp = rand(speedMin, speedMax);
+ const p = allocParticle();
+ p.x = x; p.y = y;
+ p.vx = Math.cos(ang)*sp*spread + rand(-34,34);
+ p.vy = Math.sin(ang)*sp*spread + rand(-34,34);
+ p.r = rand(sizeMin, sizeMax) * 0.72;
+ p.t = 0;
+ p.life = rand(lifeMin, lifeMax);
+ p.hue = (hueBase + rand(-48,48) + 360) % 360;
+ p.a = rand(0.40, 0.78);
+ p.drag = rand(0.89, 0.955);
+ p.glow = rand(0.22, 0.48);
+ state.particles.push(p);
+ }
+}
+
+function emitTrail(x,y, hueBase, density=1){
+ const mult = state.perf?.pMult ?? 1;
+ const n = Math.max(1, Math.floor(density * mult));
+ for(let k=0;k<n;k++){
+ if(state.particles.length >= MAX_PARTICLES) return;
+ const p = allocParticle();
+ p.x = x + rand(-2.5,2.5);
+ p.y = y + rand(-2.5,2.5);
+ p.vx = rand(-22,22);
+ p.vy = rand(-22,22);
+ p.r = rand(0.8, 2.0);
+ p.t = 0;
+ p.life = rand(240, 520);
+ p.hue = (hueBase + rand(-22,22) + 360) % 360;
+ p.a = rand(0.25, 0.62);
+ p.drag = 0.85;
+ p.glow = rand(0.12, 0.30);
+ state.particles.push(p);
+ }
+}
+ function fireProjectile(x0,y0, x1,y1, opt){
+ const dx=x1-x0, dy=y1-y0;
+ const d = Math.hypot(dx,dy) || 1;
+ const vx = (dx/d) * opt.speed;
+ const vy = (dy/d) * opt.speed;
+ state.projectiles.push({
+ x:x0, y:y0, vx, vy,
+ r: opt.r ?? 4.8,
+ dmg: opt.dmg,
+ pierce: opt.pierce || 0,
+ life: opt.life ?? 980,
+ t: 0,
+ hue: opt.hue,
+ type: opt.type || "orb",
+ spin: opt.spin || 0,
+ glow: opt.glow || 1
+ });
+ emitParticles(x0,y0, 16, opt.hue, 60, 240, 260, 660, 1.0, 2.9, 1.05);
+ }
+
+ function fireBeam(x0,y0,x1,y1,opt){
+ const dx=x1-x0, dy=y1-y0;
+ const d=Math.hypot(dx,dy) || 1;
+ const ux=dx/d, uy=dy/d;
+ const len=760;
+
+ addEffectBeam(x0,y0,ux,uy,len,opt.width||12,opt.hue);
+ addEffectBeam(x0,y0,ux,uy,len,(opt.width||12)*0.55,(opt.hue+20)%360);
+ emitParticles(x0,y0, 52, opt.hue, 110, 420, 320, 920, 1.2, 4.6, 1.12);
+ addEffectSpark(x0,y0,(opt.hue+18)%360);
+
+ let remaining = opt.pierce ?? 2;
+ const hits = [];
+ for(const e of state.enemies){
+ const px = e.x - x0, py = e.y - y0;
+ const proj = px*ux + py*uy;
+ if(proj < 0 || proj > len) continue;
+ const cx = x0 + ux*proj, cy = y0 + uy*proj;
+ const dd = dist(e.x,e.y,cx,cy);
+ if(dd <= e.r + (opt.width||12)*0.55) hits.push({ e, proj });
+ }
+ hits.sort((a,b)=>a.proj-b.proj);
+ for(const h of hits){
+ dealDamageToEnemy(h.e, opt.dmg, { knock: 140, hue: opt.hue });
+ remaining--;
+ if(remaining < 0) break;
+ }
+ }
+
+ function dealDamageToEnemy(e, dmg, {knock=0, hue=0}={}){
+ if(state._ki) dmg = Math.round(dmg * (1 + state._ki));
+ if(!e || e.hp <= 0) return;
+
+ const isCrit = Math.random() < state.player.crit;
+ dmg = Math.round(dmg * (1 + (state._dmgBonus||0)));
+ const final = isCrit ? Math.round(dmg * 1.75) : dmg;
+
+ e.hp -= final;
+ e.hitFlash = 160;
+
+ if(knock > 0){
+ const dx = e.x - state.player.x, dy = e.y - state.player.y;
+ const d = Math.hypot(dx,dy) || 1;
+ e.knock.x = (dx/d) * knock;
+ e.knock.y = (dy/d) * knock;
+ e.knock.t = 170;
+ }
+
+ addFloatText(e.x + rand(-8,8), e.y + rand(-8,8), `${isCrit ? "CRIT " : ""}-${final}`, isCrit ? "warn" : "neutral");
+
+ const hh = hue || e.hue;
+ addEffectSpark(e.x + rand(-10,10), e.y + rand(-10,10), hh);
+ emitParticles(e.x, e.y, isCrit ? 42 : 28, hh, 80, 380, 280, 860, 1.0, 3.6, 1.12);
+
+ if(e.hp <= 0) killEnemy(e);
+ }
+
+ function killEnemy(e){
+ e._dead = true;
+ state.killsInWave++;
+
+ const baseXp = e.isElite ? 3 : 2;
+ gainXP(Math.round(baseXp * state._xpMult));
+
+ addEffectRing(e.x,e.y, e.r+12, 340, e.hue);
+ emitParticles(e.x, e.y, e.isElite ? 78 : 54, e.hue, 140, 560, 440, 1180, 1.4, 4.0, 1.25);
+
+ // Death Bloom (rare): enemies explode on death
+ if(state._deathBloom){
+  const R = 55;
+  const dmg = Math.round(state.player.basePow * 0.6);
+  addEffectNova(e.x, e.y, R, (e.hue+40)%360);
+  emitParticles(e.x, e.y, 120, (e.hue+40)%360, 180, 820, 420, 1500, 1.2, 5.6, 1.30);
+  for(const ee of state.enemies){
+    if(ee._dead) continue;
+    if(!ee.targetable) continue;
+    if(dist(ee.x, ee.y, e.x, e.y) <= R + ee.r){
+      dealDamageToEnemy(ee, dmg, { knock: 220, hue: (e.hue+40)%360 });
+    }
+  }
+ }
+
+ if(false && state.killsInWave >= state.killsToAdvance && state.waveElapsed >= state.minWaveSeconds){
+ state.wave++;
+ state.killsInWave = 0;
+ state.waveElapsed = 0;
+ state.killsToAdvance = Math.round(state.killsToAdvance * 1.10 + 2);
+ ui.waveChip.textContent = `Wave ${state.wave}`;
+ showToast(`Wave ${state.wave} — hold the line!`);
+ }
+ }
+
+ function gainXP(amount){
+ state.xp += amount;
+ addFloatText(state.player.x + rand(-10,10), state.player.y - 24 + rand(-6,6), `+${amount} XP`, "good");
+ while(state.xp >= state.xpToNext){
+ state.xp -= state.xpToNext;
+ state.level++;
+ state.xpToNext = (state.level < 4)
+        ? Math.round(state.xpToNext * 1.18 + 6)
+        : Math.round(state.xpToNext * 1.30 + 12);
+ levelUpChoice();
+ }
+ }
+
+ function enemyAttackPlayer(e, dt){
+ e._atk = e._atk || { cd: 0 };
+ e._atk.cd -= dt;
+ if(e._atk.cd > 0) return;
+
+ if(dist(e.x,e.y,state.player.x,state.player.y) <= e.r + state.player.r + 1){
+ e._atk.cd = 560;
+ const raw = e.dmg;
+ const reduced = Math.max(1, raw * (1 - state.player.armor));
+ // Shields absorb damage first
+ let dmgLeft = reduced;
+ if(state.player.shield > 0){
+   const take = Math.min(state.player.shield, dmgLeft);
+   state.player.shield -= take;
+   dmgLeft -= take;
+ }
+ if(dmgLeft > 0){
+   state.player.hp = clamp(state.player.hp - dmgLeft, 0, state.player.maxHp);
+ }
+
+ // Reactive Barrier (rare)
+ if(state._reactiveBarrier && state._reactiveBarrierCd <= 0){
+   const hpPct = state.player.hp / Math.max(1, state.player.maxHp);
+   if(hpPct <= 0.40){
+     const gain = Math.round(state.player.maxHp * 0.18);
+     state.player.shield += gain;
+     state._reactiveBarrierCd = 25000;
+     addEffectRing(state.player.x, state.player.y, 52, 360, 190);
+     addEffectRing(state.player.x, state.player.y, 78, 360, 210);
+     emitParticles(state.player.x, state.player.y, 90, 200, 160, 720, 420, 1350, 1.2, 5.2, 1.30);
+     showToast("Reactive Barrier!");
+   }
+ }
+
+ state.player.hp = clamp(state.player.hp, 0, state.player.maxHp);
+ addFloatText(state.player.x + rand(-10,10), state.player.y + rand(-10,10), `-${Math.round(reduced)}`, "bad");
+ addEffectSpark(state.player.x + rand(-12,12), state.player.y + rand(-12,12), e.hue);
+ emitParticles(state.player.x, state.player.y, 24, (e.hue+40)%360, 70, 320, 280, 820, 1.0, 3.4, 1.1);
+ }
+ }
+
+ function spawnEnemy(){
+ const w = canvas.clientWidth || ui.arenaWrap.getBoundingClientRect().width;
+ const h = canvas.clientHeight || ui.arenaWrap.getBoundingClientClientRect?.() || ui.arenaWrap.getBoundingClientRect().height;
+
+ const margin = 40;
+ const side = randi(0,3);
+ let x, y;
+ if(side === 0){ x = rand(margin, w-margin); y = -margin; }
+ if(side === 1){ x = w+margin; y = rand(margin, h-margin); }
+ if(side === 2){ x = rand(margin, w-margin); y = h+margin; }
+ if(side === 3){ x = -margin; y = rand(margin, h-margin); }
+
+ const tier = clamp(Math.floor((state.wave-1)/3.6), 0, 6);
+ const isElite = (state.wave >= 2) && (Math.random() < (0.14 + 0.025*tier + 0.006*Math.max(0, state.wave-2)));
+ 
+ // Cap elites on screen so late waves don't feel like "all elites"
+ const eliteAlive = state.enemies.reduce((n,ee)=> n + (!!ee.isElite && !ee._dead ? 1 : 0), 0);
+ const eliteCap = (state.wave < 4) ? 7 : 10;
+ const isEliteFinal = isElite && (eliteAlive < eliteCap);
+if(state.tutorial && state._tut && isEliteFinal && !state._tut.eliteShown){
+  state._tut.eliteShown = true;
+  setTimeout(()=> showToastLong("Elite enemy: tougher + hits harder. Keep moving and let your supers work.", 3200), 350);
+}
+
+const r = isEliteFinal ? rand(16, 22) : rand(11, 17);
+
+ const baseHp = 8 + state.wave*1.25 + tier*1.85;
+ const hp = isEliteFinal ? baseHp * 1.32 : baseHp;
+
+ const baseSpeed = 26 + state.wave*1.10;
+ const speed = isElite ? baseSpeed*0.93 : baseSpeed;
+
+ const dmg = 3.3 + state.wave*0.28 + (isElite ? 1.6 : 0);
+
+ const hue = (state.wave*22 + (isElite ? 330 : 190) + randi(-25,25)) % 360;
+
+ state.enemies.push({
+ x,y,r,
+ hp,maxHp:hp,
+ speed,
+ dmg,
+ isElite: isEliteFinal,
+ hue,
+ targetable: false,
+ _spawnedAt: now(),
+ hitFlash: 0,
+ knock: { x:0, y:0, t:0 },
+ });
+
+ emitParticles(x, y, isElite ? 22 : 12, hue, 50, 250, 300, 860, 0.9, 2.9, 0.95);
+ }
+
+ function makeAbilityDef({ id, name, desc, icon="✨", hue=210, cooldownMs=1500, cooldownFn=null, durationMs=0, rarity=1, kind="active", onUse=null, onPick=null }){
+ state.abilityDefs[id] = { id,name,desc,icon,hue,cooldownMs,cooldownFn,durationMs,rarity,kind,onUse,onPick };
+ }
+ function getCooldownMult(){ return state._cdr || 1; }
+
+ function addAbility(id){
+ const def = state.abilityDefs[id];
+ if(!def || def.kind !== "active") return;
+
+ // Allow duplicates: players can equip multiple copies of the same super in different slots.
+ // IMPORTANT: Each copy must run on its own timer (staggered), so stacks don't fire in-sync.
+ const existingSame = state.autoAbilities.reduce((n,a)=> n + (a.id===id ? 1 : 0), 0);
+
+ // Stagger each additional copy slightly so an "Energy Orb x3" build feels like a stream, not a single burst.
+ const STAGGER_MS = 240; // tuned: noticeable separation without feeling slow
+ const jitter = rand(-35, 35);
+ const initialDelay = existingSame * STAGGER_MS + jitter;
+
+ state.autoAbilities.push({
+   id,
+   cdUntil: now() + Math.max(0, initialDelay),
+   _desyncSeed: rand(-55, 55) // small per-instance desync to prevent re-sync over time
+ });
+
+ showToast(`Unlocked: ${def.name}`);
+ renderIcons();
+ }
+
+ function tickAbilities(){
+ const t = now();
+ // Keep duplicate copies of the same attack from firing on the exact same frame.
+ // If multiple copies are ready together, they will "queue" with a tiny spacing between casts.
+ const lastById = state._lastAbilityFireById || (state._lastAbilityFireById = {});
+ const DUPLICATE_SPACING_MS = 220;
+
+ for(const ab of state.autoAbilities){
+  const def = state.abilityDefs[ab.id];
+  if(!def) continue;
+  const baseCd = (def.cooldownFn ? def.cooldownFn() : def.cooldownMs);
+  const cd = baseCd * getCooldownMult();
+  if(t < ab.cdUntil) continue;
+
+  // If another copy of this same ability fired moments ago, delay this one a bit.
+  const lastT = (lastById[ab.id] ?? -1e15);
+  if(t - lastT < DUPLICATE_SPACING_MS){
+    ab.cdUntil = t + (DUPLICATE_SPACING_MS - (t - lastT));
+    continue;
+  }
+
+  const ok = def.onUse?.();
+  lastById[ab.id] = t;
+  if(ok === false){
+    const total = Math.min(520, cd*0.35);
+    ab._lastCdTotal = total;
+    const drift = (ab._desyncSeed||0) + rand(-25,25);
+    ab.cdUntil = t + total + drift;
+  }else{
+    const extraDelay = (ok && typeof ok === "object" && ok.delayMs) ? ok.delayMs : 0;
+    const total = cd + extraDelay;
+    ab._lastCdTotal = total;
+    const drift = (ab._desyncSeed||0) + rand(-25,25);
+    ab.cdUntil = t + total + drift;
+  }
+ }
+ }
+
+ function setIconSvg(el, svgText){
+  // Some browsers are picky about SVG-in-HTML. This path works reliably in Firefox.
+  try{
+    el.innerHTML = svgText;
+    // If Firefox fails to create an SVG element, fall back to DOMParser
+    if(!el.querySelector || !el.querySelector("svg")){
+      const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+      el.innerHTML = "";
+      el.appendChild(doc.documentElement);
+    }
+  }catch(e){
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    el.innerHTML = "";
+    el.appendChild(doc.documentElement);
+  }
+}
+
+function iconSVG(id){
+  // Inline SVGs use currentColor for stroke/fill so we can tint by hue.
+  // Keep shapes bold and simple for readability on mobile + desktop.
+  const svgs = {
+    // Energy beams
+    "wave_cannon": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <path d="M10 44 C22 26, 34 38, 54 18" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+      <path d="M14 50 C26 32, 38 44, 58 24" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+      <circle cx="12" cy="46" r="4" fill="currentColor"/>
+    </svg>`,
+    "dual_beam": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <path d="M14 46 L44 22" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+      <path d="M18 52 L50 28" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+      <path d="M20 40 L54 18" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.55"/>
+      <circle cx="16" cy="48" r="4" fill="currentColor"/>
+      <circle cx="22" cy="42" r="3" fill="currentColor" opacity="0.8"/>
+    </svg>`,
+    "piercing_beam": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <path d="M12 34 L56 34" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+      <path d="M20 26 L56 26" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.65"/>
+      <path d="M20 42 L56 42" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.65"/>
+      <path d="M10 34 L18 28 L18 40 Z" fill="currentColor"/>
+    </svg>`,
+    "special_beam": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <path d="M10 32 L54 32" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+      <path d="M18 22 L54 22" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+      <path d="M18 42 L54 42" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+      <circle cx="14" cy="32" r="5" fill="currentColor"/>
+      <path d="M54 32 L46 26 L46 38 Z" fill="currentColor"/>
+    </svg>`,
+    // Explosions / bursts
+    "plasma_burst": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <path d="M32 10 L38 24 L54 22 L42 34 L50 50 L32 40 L14 50 L22 34 L10 22 L26 24 Z"
+        fill="currentColor" opacity="0.85"/>
+      <circle cx="32" cy="32" r="8" fill="currentColor"/>
+    </svg>`,
+    "big_blast": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <circle cx="28" cy="36" r="14" fill="currentColor" opacity="0.85"/>
+      <circle cx="40" cy="28" r="10" fill="currentColor" opacity="0.65"/>
+      <path d="M14 50 C22 46, 34 46, 50 38" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.55"/>
+    </svg>`,
+    "aura_nova": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="18" stroke="currentColor" stroke-width="5" opacity="0.9"/>
+      <circle cx="32" cy="32" r="10" stroke="currentColor" stroke-width="3" opacity="0.7"/>
+      <path d="M32 10 L36 20 L46 24 L36 28 L32 38 L28 28 L18 24 L28 20 Z" fill="currentColor" opacity="0.75"/>
+    </svg>`,
+    "sky_barrage": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <path d="M18 14 L28 28" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+      <path d="M34 10 L36 30" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+      <path d="M48 16 L40 30" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="28" cy="28" r="4" fill="currentColor"/>
+      <circle cx="36" cy="30" r="4" fill="currentColor" opacity="0.85"/>
+      <circle cx="40" cy="30" r="4" fill="currentColor" opacity="0.7"/>
+    </svg>`,
+    // Passives / misc
+    "up_fastcast": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <path d="M18 36 L32 12 L28 32 H44 L30 52 L34 36 Z" fill="currentColor"/>
+      <path d="M14 46 C22 52, 42 52, 50 40" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.55"/>
+    </svg>`,
+    "up_extrasuper": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <rect x="12" y="14" width="40" height="36" rx="10" stroke="currentColor" stroke-width="5" opacity="0.9"/>
+      <path d="M32 22 V42" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+      <path d="M22 32 H42" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+    </svg>`,
+    "default": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="16" stroke="currentColor" stroke-width="5"/>
+      <path d="M22 34 L30 42 L44 22" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`
+  };
+  return (svgs[id] || svgs["default"]);
+}
+
+function renderIcons(){
+ ui.iconRow.innerHTML = "";
+ for(const ab of state.autoAbilities){
+  const def = state.abilityDefs[ab.id];
+  if(!def) continue;
+
+  const wrap = document.createElement('div');
+  wrap.className = "atkIcon";
+
+  const tile = document.createElement('div');
+  tile.className = "iconTile";
+  tile.style.borderColor = rgbaFromHsv(def.hue,0.9,0.95,0.32);
+  tile.style.boxShadow = `0 0 28px ${rgbaFromHsv(def.hue,0.95,0.95,0.12)}`;
+
+  const icon = document.createElement('div');
+  icon.className = "iconSvg";
+  icon.style.color = rgbaFromHsv(def.hue,0.95,0.95,0.95);
+  setIconSvg(icon, iconSVG(def.id));
+
+  const cdOverlay = document.createElement('div');
+  cdOverlay.className = "cdOverlay";
+
+  const cdBar = document.createElement('div');
+  cdBar.className = "cdBar";
+  const cdFill = document.createElement('div');
+  cdFill.className = "cdFill";
+  cdFill.style.background = rgbaFromHsv(def.hue,0.95,0.95,0.85);
+  cdBar.appendChild(cdFill);
+
+  tile.appendChild(icon);
+  tile.appendChild(cdOverlay);
+  tile.appendChild(cdBar);
+
+  const label = document.createElement('div');
+  label.className = "iconLabel";
+  label.textContent = def.name;
+
+  wrap.appendChild(tile);
+  wrap.appendChild(label);
+
+  wrap._id = def.id;
+  wrap._fill = cdFill;
+  wrap._overlay = cdOverlay;
+
+  ui.iconRow.appendChild(wrap);
+ }
+}
+
+function updateIconCooldowns(){
+ const t = now();
+ const tiles = Array.from(ui.iconRow.children);
+ for(const el of tiles){
+ const id = el._id;
+ const fill = el._fill;
+ const overlay = el._overlay;
+ if(!id || !fill || !overlay) continue;
+ const ab = state.autoAbilities.find(a=>a.id===id);
+ const def = state.abilityDefs[id];
+ if(!ab || !def) continue;
+ const baseCd = (def.cooldownFn ? def.cooldownFn() : def.cooldownMs);
+ const cd = (ab._lastCdTotal ?? (baseCd * getCooldownMult()));
+ const left = Math.max(0, ab.cdUntil - t);
+ const pct = cd > 0 ? (1 - left/cd) : 1;
+ fill.style.width = `${Math.round(pct*100)}%`;
+ overlay.style.opacity = left > 0 ? clamp(0.10 + (left/cd)*0.70, 0, 0.80) : 0;
+ }
+ }
+
+ function pickWeightedUnique(list, count){
+  const out=[];
+  const pool=list.slice();
+
+  // Count how many copies of an active super you currently have.
+  const activeCopies = (id)=>{
+    if(!state || !state.autoAbilities) return 0;
+    let n=0;
+    for(const a of state.autoAbilities) if(a && a.id===id) n++;
+    return n;
+  };
+
+  // Track what has been shown during this specific level-up (including rerolls),
+  // so rerolls feel fresh instead of repeating the same 1-2 options.
+  const seenInThisLevel = (id)=>{
+    const hist = state._choiceHistoryForLevel || [];
+    let c=0;
+    for(const x of hist) if(x===id) c++;
+    return c;
+  };
+
+  for(let i=0;i<count && pool.length;i++){
+    const weights = pool.map(d => {
+      const baseW = (d.weight ?? 1);
+
+      // Softer rarity curve so choices feel less "forced" and more random.
+      const r = (d.rarity || 1);
+      const exp = (d.kind === "active") ? 0.95 : 1.25;
+      let w = baseW / Math.pow(r, exp);
+
+      // Mild diminishing returns for already-owned actives (still stackable).
+      if(d.kind === "active"){
+        const c = activeCopies(d.id);
+        if(c > 0){
+          w *= 1 / (1 + c * 0.55);
+        }
+      }
+
+      // Stronger "freshness" pressure within the same level-up screen.
+      const s = seenInThisLevel(d.id);
+      if(s > 0){
+        w *= 1 / (1 + s * 2.25);
+      }
+
+      // Add small random jitter so rolls don't feel deterministic.
+      w *= (0.85 + Math.random()*0.30);
+
+      return Math.max(0.00001, w);
+    });
+
+    const idx = weightedIndex(weights);
+    out.push(pool[idx]);
+    pool.splice(idx,1);
+  }
+  return out;
+ }
+ function weightedIndex(weights){
+ const sum = weights.reduce((a,b)=>a+b,0);
+ let r = Math.random()*sum;
+ for(let i=0;i<weights.length;i++){
+ r -= weights[i];
+ if(r <= 0) return i;
+ }
+ return weights.length-1;
+ }
+
+ function levelUpChoice(){
+ state.pausedForChoice = true;
+ ui.overlay.classList.add('show');
+ ui.modalTitle.textContent = `Level Up! (LV ${state.level})`;
+ ui.modalDesc.textContent = `Pick 1 upgrade. Supers auto-fire once unlocked.`;
+  if(state.tutorial && state._tut && !state._tut.levelUpShown){
+    state._tut.levelUpShown = true;
+    // Coach sequence: explain the level-up UI with step-by-step popups pointing at controls.
+    setTimeout(async ()=>{
+      const firstChoice = ui.choices && ui.choices.firstElementChild ? ui.choices.firstElementChild : ui.choices;
+      const steps = [
+        { el: ui.modalTitle, text: "<b>Level Up</b><br/>Pick <b>1</b> upgrade. The game is paused while you choose." },
+        { el: ui.rerollBtn,  text: "<b>Reroll</b><br/>Shuffle the 4 options into new ones. You only get <b>3</b> rerolls per run.", ok:"Next" },
+        { el: ui.banishInfo, text: "<b>Banish</b><br/>Remove a single option and refill its slot. You only get <b>3</b> banishes per run.", ok:"Next" },
+        { el: firstChoice,  text: "<b>Supers vs Passives</b><br/><b>Supers</b> add new auto-attacks (they fire on cooldown). <b>Passives</b> boost stats like damage, crit, regen, armor.", ok:"Got it" },
+      ];
+      await runCoachSequence(steps);
+    }, 120);
+  }
+updateLevelControls();
+state._choiceHistoryForLevel = [];
+const pickIds = rollLevelChoices();
+// Keep the options stable if we need to "Back" out of a replace prompt.
+renderUpgradeChoices(pickIds);
+}
+
+ 
+ function updateLevelControls(){
+ ui.rerollLeft.textContent = String(state.rerollsLeft);
+ ui.banishLeft.textContent = String(state.banishesLeft);
+
+ if(state.rerollsLeft <= 0) ui.rerollBtn.classList.add('disabled');
+ else ui.rerollBtn.classList.remove('disabled');
+
+ if(state.banishesLeft <= 0) ui.banishInfo.classList.add('disabled');
+ else ui.banishInfo.classList.remove('disabled');
+ }
+
+ function getUpgradeCandidates(){
+ const allDefs = Object.values(state.abilityDefs);
+ const candidates = [];
+ for(const def of allDefs){
+ if(state._banished && state._banished[def.id]) continue;
+ // Overcharge Slot can only be taken twice
+ if(def.id === "up_extrasuper" && (state._extraSuperSlots||0) >= 2) continue;
+ // Allow active duplicates (multiple copies of the same super).
+ if(def.kind !== "active"){
+  // One-time passives should not reappear once owned
+  if(def.id === "death_bloom" && state._deathBloom) continue;
+  if(def.id === "reactive_barrier" && state._reactiveBarrier) continue;
+  if(def.id === "glass_cannon_core" && state._glassCannon) continue;
+  // Hide capped stack upgrades once they are maxed
+  if(def.id === "up_crit" && (state.player.crit ?? 0) >= 0.60 - 1e-6) continue;
+  if(def.id === "up_armor" && (state.player.armor ?? 0) >= 0.65 - 1e-6) continue;
+}
+ candidates.push(def);
+ }
+ return candidates;
+ }
+
+ function rollLevelChoices(excludeIds){
+  const allCandidates = getUpgradeCandidates();
+
+  // If we're rerolling, try to avoid showing the exact same options again.
+  const exclude = Array.isArray(excludeIds) ? excludeIds : [];
+  let candidates = exclude.length ? allCandidates.filter(d=>!exclude.includes(d.id)) : allCandidates;
+
+  // If avoidance leaves us with too few, fall back to full pool.
+  if(candidates.length < 6) candidates = allCandidates;
+
+  const actives = candidates.filter(d=>d.kind==="active");
+  const passives = candidates.filter(d=>d.kind!=="active");
+
+  // More "random feel": sometimes 1,2, or 3 supers appear.
+  let activeCount = 2;
+  const roll = Math.random();
+  if(roll < 0.22) activeCount = 1;
+  else if(roll > 0.78) activeCount = 3;
+  const passiveCount = 4 - activeCount;
+
+  const pickN = (arr, n)=>{
+    const picks = pickWeightedUnique(arr, Math.min(n, arr.length));
+    return picks.map(p=>p.id);
+  };
+
+  let activeIds = pickN(actives, activeCount);
+  let passiveIds = pickN(passives.filter(p=>!activeIds.includes(p.id)), passiveCount);
+
+  // Fallback: if not enough in one bucket, fill from the other
+  let ids = activeIds.concat(passiveIds);
+  if(ids.length < 4){
+    const pool = candidates.filter(d=>!ids.includes(d.id));
+    const extra = pickWeightedUnique(pool, Math.min(4-ids.length, pool.length)).map(p=>p.id);
+    ids = ids.concat(extra);
+  }
+
+  return ids.slice(0,4);
+}
+
+ function rerollChoices(){
+ if(state.rerollsLeft <= 0) return;
+ state.rerollsLeft--;
+ const exclude = (state._levelPickIds || []);
+ const pickIds = rollLevelChoices(exclude);
+ renderUpgradeChoices(pickIds);
+showToast("Rerolled.");
+ }
+
+ function banishChoice(choiceId){
+ if(state.banishesLeft <= 0) return;
+ state.banishesLeft--;
+ 
+ if(state.tutorial && state._tut && !state._tut.banishShown){
+   state._tut.banishShown = true;
+   showToastLong("Banish spent: use banish to remove upgrades you never want to see again this run.", 3200);
+ }
+state._banished[choiceId] = true;
+
+ const current = (state._levelPickIds || []).filter(id => id !== choiceId);
+
+// Refill up to 4 while trying to keep 2 supers + 2 passives
+const all = getUpgradeCandidates().filter(d => !current.includes(d.id));
+const curDefs = current.map(id=>state.abilityDefs[id]).filter(Boolean);
+const curA = curDefs.filter(d=>d.kind==="active").length;
+const curP = curDefs.length - curA;
+
+const needA = Math.max(0, 2 - curA);
+const needP = Math.max(0, 2 - curP);
+
+const addFrom = (arr, n)=>{
+  if(n<=0) return;
+  const picks = pickWeightedUnique(arr, Math.min(n, arr.length));
+  for(const p of picks) if(!current.includes(p.id)) current.push(p.id);
+};
+
+addFrom(all.filter(d=>d.kind==="active"), needA);
+addFrom(all.filter(d=>d.kind!=="active" && !current.includes(d.id)), needP);
+
+// If still short, fill with anything
+if(current.length < 4){
+  const pool = all.filter(d=>!current.includes(d.id));
+  const extra = pickWeightedUnique(pool, Math.min(4-current.length, pool.length)).map(p=>p.id);
+  current.push(...extra);
+}
+
+state._levelPickIds = current.slice(0,4);
+renderUpgradeChoices(state._levelPickIds);
+ updateLevelControls();
+showToast("Banished.");
+ }
+
+ function renderUpgradeChoices(pickIds){
+ state._levelPickIds = pickIds.slice();
+ // remember what we have shown this level-up (helps rerolls feel fresh)
+ if(!state._choiceHistoryForLevel) state._choiceHistoryForLevel = [];
+ state._choiceHistoryForLevel.push(...state._levelPickIds);
+ updateLevelControls();
+
+ ui.choices.innerHTML = "";
+ pickIds.forEach((pid)=>{
+ const def = state.abilityDefs[pid];
+ if(!def) return;
+ const el = document.createElement('div');
+ el.className = 'choice';
+
+ const banishBtn = (state.banishesLeft > 0)
+ ? `<span class="chip" data-banish="1" style="padding:4px 8px; font-size:12px; border-color:rgba(255,255,255,0.18);">🗑️</span>`
+ : `<span class="chip" style="padding:4px 8px; font-size:12px; opacity:0.4;">🗑️</span>`;
+
+ el.innerHTML = `
+ <div class="topline">
+ <span>${def.icon} ${def.name}</span>
+ <span style="display:flex; gap:8px; align-items:center;">
+ ${banishBtn}
+ <span class="chip" style="padding:4px 8px; font-size:12px; border-color:${rgbaFromHsv(def.hue,0.9,0.9,0.35)};">${def.kind === "active" ? `Super` : `Passive`}</span>
+ </span>
+ </div>
+ <div class="meta">${def.desc}</div>
+ <div class="meta" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
+ ${def.kind === "active" ? `<span>CD ${(def.cooldownMs/1000).toFixed(1)}s</span>` : `<span>Rarity ${def.rarity}</span>`}
+ </div>
+ `;
+
+ el.addEventListener('click', (ev)=>{
+ const ban = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-banish');
+ if(ban){
+ ev.stopPropagation();
+ banishChoice(def.id);
+ return;
+ }
+ pickUpgrade(def.id);
+ });
+
+ ui.choices.appendChild(el);
+ });
+ }
+
+ function openReplacePrompt(newSuperId){
+ const newDef = state.abilityDefs[newSuperId];
+ if(!newDef) return;
+
+ state._pendingSuperId = newSuperId;
+ ui.modalTitle.textContent = `Replace a Super`;
+ ui.modalDesc.textContent = `You already have ${state.maxSupers} supers. Pick one to replace with ${newDef.name}, or go back.`;
+
+ ui.choices.innerHTML = "";
+
+ // List existing supers to replace
+ state.autoAbilities.forEach((ab, idx)=>{
+ const def = state.abilityDefs[ab.id];
+ if(!def) return;
+ const el = document.createElement('div');
+ el.className = 'choice';
+ el.innerHTML = `
+ <div class="topline">
+ <span>${def.icon} ${def.name}</span>
+ <span class="chip" style="padding:4px 8px; font-size:12px; border-color:${rgbaFromHsv(def.hue,0.9,0.9,0.35)};">Replace</span>
+ </div>
+ <div class="meta">Swap this out for <b>${newDef.name}</b>.</div>
+ `;
+ el.addEventListener('click', ()=> replaceSuperAt(idx, newSuperId));
+ ui.choices.appendChild(el);
+ });
+
+ // Back option
+ const back = document.createElement('div');
+ back.className = 'choice';
+ back.innerHTML = `
+ <div class="topline">
+ <span>⬅️ Back</span>
+ <span class="chip" style="padding:4px 8px; font-size:12px;">Return</span>
+ </div>
+ <div class="meta">Go back and pick a different upgrade.</div>
+ `;
+ back.addEventListener('click', ()=>{
+ ui.modalTitle.textContent = `Level Up! (LV ${state.level})`;
+ ui.modalDesc.textContent = `Pick 1 upgrade. Supers auto-fire once unlocked.`;
+ if(state._levelPickIds && state._levelPickIds.length){
+ renderUpgradeChoices(state._levelPickIds);
+ }
+ });
+ ui.choices.appendChild(back);
+ }
+
+ function replaceSuperAt(oldIdx, newId){
+ const oldId = state.autoAbilities[oldIdx]?.id;
+ const oldDef = oldId ? state.abilityDefs[oldId] : null;
+ const newDef = state.abilityDefs[newId];
+
+ // Remove old
+ if(oldIdx >= 0 && oldIdx < state.autoAbilities.length) state.autoAbilities.splice(oldIdx, 1);
+
+ // Add new
+ state.autoAbilities.push({ id: newId, cdUntil: 0 });
+
+ renderIcons();
+ showToast(`Replaced: ${oldDef?.name || "Super"} → ${newDef?.name || "New Super"}`);
+
+ ui.overlay.classList.remove('show');
+ state.pausedForChoice = false;
+ state._pendingSuperId = null;
+ updateUI(true);
+ }
+
+function pickUpgrade(id){
+ const def = state.abilityDefs[id];
+ if(!def) return;
+
+ if(def.kind === "active"){
+ // Limit supers to 3. If full, prompt the player to replace one or go back.
+ if(state.autoAbilities.length >= state.maxSupers){
+ openReplacePrompt(def.id);
+ return;
+ }
+ addAbility(def.id);
+ }else{
+ def.onPick?.();
+ showToast(`Passive: ${def.name}`);
+ }
+
+ ui.overlay.classList.remove('show');
+ state.pausedForChoice = false;
+ updateUI(true);
+ }
+
+ // Supers inspired by DB (generic names)
+ makeAbilityDef({
+ id:"energy_orb", name:"Energy Orb",
+ desc:"Rapid-fire orb at the nearest enemy.",
+ icon:"🔹", hue:205, cooldownMs:520, kind:"active", rarity:1, weight:0.45,
+ onUse: ()=>{
+ const t = findNearestEnemy();
+ if(!t) return false;
+ fireProjectile(state.player.x, state.player.y, t.x, t.y, { speed: 720, dmg: Math.round(state.player.basePow*1.05 + 3), pierce:0, hue:205, r:4.6 });
+ addEffectRing(state.player.x, state.player.y, 22, 240, 205);
+ emitParticles(state.player.x, state.player.y, 10, 205, 60, 220, 240, 620, 0.9, 2.6, 1.0);
+ return true;
+ }
+ });
+
+ makeAbilityDef({
+ id:"wave_cannon", name:"Energy Wave",
+ desc:"A piercing energy wave through multiple enemies.",
+ icon:"🟦", hue:200, cooldownMs:2400, kind:"active", rarity:2,
+ onUse: ()=>{
+ const t = findNearestEnemy();
+ if(!t) return false;
+ fireBeam(state.player.x, state.player.y, t.x, t.y, { dmg: Math.round(state.player.basePow*2.2 + 10), pierce:4, width:12, hue:200 });
+ addEffectRing(state.player.x, state.player.y, 30, 240, 200);
+ return true;
+ }
+ });
+
+ makeAbilityDef({
+ id:"dual_beam", name:"Dual Beam",
+ desc:"Two beams split to hit two nearest targets.",
+ icon:"🔱", hue:320, cooldownMs:2800, kind:"active", rarity:2,
+ onUse: ()=>{
+ const t1 = findNearestEnemy();
+ if(!t1) return false;
+ let t2=null, best=1e9;
+ for(const e of state.enemies){
+ if(e===t1) continue;
+ const d = dist(e.x,e.y,state.player.x,state.player.y);
+ if(d<best){ best=d; t2=e; }
+ }
+ fireBeam(state.player.x, state.player.y, t1.x, t1.y, { dmg: Math.round(state.player.basePow*1.55 + 8), pierce:2, width:10, hue:320 });
+ if(t2) fireBeam(state.player.x, state.player.y, t2.x, t2.y, { dmg: Math.round(state.player.basePow*1.55 + 8), pierce:2, width:10, hue:(320+30)%360 });
+ emitParticles(state.player.x, state.player.y, 28, 320, 90, 340, 320, 900, 1.2, 3.4, 1.05);
+ return true;
+ }
+ });
+
+ makeAbilityDef({
+ id:"scatter_shot", name:"Scatter Shot",
+ desc:"Sprays a fan of mini-orbs.",
+ icon:"💠", hue:175, cooldownMs:1700, kind:"active", rarity:2,
+ onUse: ()=>{
+ const t = findNearestEnemy();
+ if(!t) return false;
+ const dx = t.x - state.player.x, dy = t.y - state.player.y;
+ const baseAng = Math.atan2(dy, dx);
+ const pellets = 7;
+ for(let i=0;i<pellets;i++){
+ const ang = baseAng + rand(-0.55, 0.55);
+ const px = state.player.x + Math.cos(ang)*8;
+ const py = state.player.y + Math.sin(ang)*8;
+ const tx = px + Math.cos(ang)*400;
+ const ty = py + Math.sin(ang)*400;
+ fireProjectile(px,py, tx,ty, { speed: 760, dmg: Math.round(state.player.basePow*0.55 + 2), pierce:0, hue:175, r:3.8, life: 620 });
+ }
+ addEffectRing(state.player.x, state.player.y, 26, 260, 175);
+ emitParticles(state.player.x, state.player.y, 36, 175, 110, 520, 320, 980, 1.1, 3.3, 1.12);
+ return true;
+ }
+ });
+
+ makeAbilityDef({
+ id:"energy_disc", name:"Energy Disc",
+ desc:"A slicing disc that pierces through enemies.",
+ icon:"🟡", hue:55, cooldownMs:3200, kind:"active", rarity:3,
+ onUse: ()=>{
+ const t = findNearestEnemy();
+ if(!t) return false;
+ fireProjectile(state.player.x, state.player.y, t.x, t.y, { speed: 920, dmg: Math.round(state.player.basePow*2.0 + 12), pierce: 4, hue:52, r:10.8, life: 980, type:"disc_saw", spin: 9.5, glow: 1.8 });
+ addEffectRing(state.player.x, state.player.y, 44, 300, 52);
+ emitParticles(state.player.x, state.player.y, 70, 52, 200, 780, 420, 1350, 1.35, 5.6, 1.30);
+ return true;
+ }
+ });
+
+ makeAbilityDef({
+ id:"big_blast", name:"Big Blast",
+ desc:"Heavy orb that detonates for splash damage.",
+ icon:"🟠", hue:25, cooldownMs:3600, kind:"active", rarity:3,
+ onUse: ()=>{
+ const t = findNearestEnemy();
+ if(!t) return false;
+ const d = dist(t.x,t.y,state.player.x,state.player.y) || 1;
+ state.projectiles.push({
+ x: state.player.x, y: state.player.y,
+ vx: (t.x-state.player.x)/d*420,
+ vy: (t.y-state.player.y)/d*420,
+ r: 13.5, dmg: Math.round(state.player.basePow*2.2 + 14),
+ pierce: 0,
+ life: 1400, t: 0, hue: 28, type:"big_orb", glow: 2.2,
+ explodeRadius: 120
+ });
+ addEffectRing(state.player.x, state.player.y, 34, 260, 28);
+ emitParticles(state.player.x, state.player.y, 60, 28, 160, 720, 420, 1350, 1.35, 5.2, 1.28);
+ return true;
+ }
+ });
+
+ makeAbilityDef({
+ id:"aura_nova", name:"Aura Nova",
+ desc:"Explodes around you when enemies are nearby.",
+ icon:"💥", hue:140, cooldownMs:3300, kind:"active", rarity:2,
+ onUse: ()=>{
+ const radius = 150;
+ let any = false;
+ for(const e of state.enemies){
+ if(dist(e.x,e.y,state.player.x,state.player.y) <= radius + e.r) { any=true; break; }
+ }
+ if(!any) return false;
+
+ const dmg = Math.round(state.player.basePow*1.65 + 10);
+ addEffectNova(state.player.x, state.player.y, radius, 140);
+ emitParticles(state.player.x, state.player.y, 160, 140, 180, 780, 420, 1350, 1.3, 5.2, 1.30);
+ addEffectRing(state.player.x, state.player.y, 44, 300, 140);
+ addEffectRing(state.player.x, state.player.y, 70, 300, 170);
+ for(const e of state.enemies){
+ if(dist(e.x,e.y,state.player.x,state.player.y) <= radius + e.r){
+ dealDamageToEnemy(e, dmg, { knock: 200, hue: 140 });
+ }
+ }
+ return true;
+ }
+ });
+
+ 
+
+ makeAbilityDef({
+ id:"sky_barrage", name:"Sky Barrage",
+ desc:"Calls down a rain of energy strikes near your target.",
+ icon:"🌠", hue:6, cooldownMs:4200, kind:"active", rarity:4,
+ onUse: ()=>{
+ const t = findNearestEnemy();
+ if(!t) return false;
+ const strikes = 9;
+ const area = 130;
+ for(let i=0;i<strikes;i++){
+ setTimeout(()=>{
+ const x = t.x + rand(-area, area);
+ const y = t.y + rand(-area, area);
+ addEffectRing(x,y, 34, 280, 6);
+ addEffectNova(x,y, 52, 6);
+ emitParticles(x,y, 68, 6, 180, 780, 420, 1350, 1.35, 5.4, 1.30);
+ emitParticles(x,y, 30, 8, 120, 520, 320, 960, 1.15, 3.8, 1.20);
+ for(const e of state.enemies){
+ if(dist(e.x,e.y,x,y) <= e.r + 40){
+ dealDamageToEnemy(e, Math.round(state.player.basePow*1.05 + 6), { knock: 120, hue: 6 });
+ }
+ }
+ }, i*110);
+ }
+ emitParticles(state.player.x, state.player.y, 54, 6, 140, 560, 420, 1100, 1.25, 4.6, 1.22);
+ return true;
+ }
+ });
+
+ 
+ // NEW Supers / Rares
+
+ makeAbilityDef({
+  id:"rapid_ki_barrage", name:"Rapid Ki Barrage",
+  desc:"4-shot burst. Cooldown is faster while Energy Orb is equipped.",
+  icon:"🟡", hue:52, cooldownMs:3200, cooldownFn: ()=>{
+    const hasOrb = state.autoAbilities.some(a=>a.id==="energy_orb");
+    return hasOrb ? 2200 : 3200;
+  },
+  kind:"active", rarity:3,
+  onUse: ()=>{
+    const t = findNearestEnemy();
+    if(!t) return false;
+    const shots = 4;
+    const gap = 80;
+    for(let i=0;i<shots;i++){
+      setTimeout(()=>{
+        const tt = findNearestEnemy() || t;
+        // bright muzzle flash
+        emitParticles(state.player.x, state.player.y, 22, 52, 180, 320, 260, 820, 1.25, 4.2, 1.25);
+        fireProjectile(state.player.x, state.player.y, tt.x, tt.y, {
+          speed: 920,
+          dmg: Math.round(state.player.basePow*0.65 + 3),
+          pierce: 0,
+          hue: 52,
+          r: 5.4,
+          life: 720,
+          type:"rapid_ki",
+          glow: 1.55
+        });
+      }, i*gap);
+    }
+    addEffectRing(state.player.x, state.player.y, 30, 260, 52);
+    return true;
+  }
+ });
+
+ makeAbilityDef({
+  id:"nova_spiral", name:"Nova Spiral",
+  desc:"3 orbiting orbs for 5s. Deals damage as they pass through enemies.",
+  icon:"🌈", hue:180, cooldownMs:4500, durationMs:5000, kind:"active", rarity:4,
+  onUse: ()=>{
+    // Prevent stacking unless cooldown is reduced and available again
+    if(state.orbitals.some(o=>o.id==="nova_spiral")) return false;
+
+    const dmg = Math.round(state.player.basePow*0.45 + 2);
+    state.orbitals.push({
+      id:"nova_spiral",
+      t: 0,
+      life: 5000,
+      radius: 48,
+      count: 3,
+      ticks: 6,
+      tickIndex: 0,
+      tickAcc: 0,
+      dmg
+    });
+    // Cooldown starts after the orbit ends
+    return { delayMs: 5000 };
+  }
+ });
+
+ makeAbilityDef({
+  id:"gravity_crush", name:"Gravity Crush",
+  desc:"Creates a gravity well, pulls enemies, then collapses in a crushing blast.",
+  icon:"🟣", hue:280, cooldownMs:4800, kind:"active", rarity:4,
+    onUse: ()=>{
+    // Spawn away from the player to avoid dragging the whole swarm onto you.
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    const inset = 120;
+    const corners = [
+      {x: inset, y: inset},
+      {x: w - inset, y: inset},
+      {x: inset, y: h - inset},
+      {x: w - inset, y: h - inset},
+    ];
+    // Pick a random corner, but if it's too close to the player, pick the farthest corner.
+    const px = state.player.x, py = state.player.y;
+    const minDist = 260;
+    let pick = corners[randi(0, corners.length-1)];
+    const dPick = Math.hypot(pick.x - px, pick.y - py);
+    if(dPick < minDist){
+      pick = corners.reduce((best,c)=>{
+        const d = Math.hypot(c.x - px, c.y - py);
+        return (d > best.d) ? {c, d} : best;
+      }, {c: corners[0], d: -1}).c;
+    }
+    // Small random offset so it doesn't feel identical every cast.
+    const x = clamp(pick.x + rand(-55, 55), inset, w-inset);
+    const y = clamp(pick.y + rand(-55, 55), inset, h-inset);
+
+    state.gravityWells.push({
+      x, y,
+      radius: 160,
+      hue: 280,
+      t: 0,
+      life: 1200,
+      pullMs: 1200,
+      collapsed: false,
+      dmg: Math.round(state.player.basePow*2.3 + 12)
+    });
+    addEffectRing(x, y, 42, 260, 280);
+    emitParticles(x, y, 60, 280, 140, 520, 360, 980, 1.1, 4.2, 1.18);
+    return true;
+  }
+ });
+
+ // RARE Passives
+ makeAbilityDef({
+  id:"reactive_barrier", name:"Reactive Barrier",
+  desc:"When hit below 40% HP: gain a shield (18% max HP). Cooldown 25s.",
+  icon:"🛡️", hue:195, kind:"passive", rarity:5,
+  onPick: ()=>{
+    state._reactiveBarrier = true;
+    showToast("Reactive Barrier equipped");
+  }
+ });
+
+ makeAbilityDef({
+  id:"glass_cannon_core", name:"Glass Cannon Core",
+  desc:"+28% damage, -15% max HP.",
+  icon:"💠", hue:18, kind:"passive", rarity:5,
+  onPick: ()=>{
+    state._glassCannon = true;
+    state._dmgBonus = (state._dmgBonus||0) + 0.28;
+    state.player.maxHp = Math.max(1, Math.round(state.player.maxHp * 0.85));
+    state.player.hp = Math.min(state.player.hp, state.player.maxHp);
+    showToast("Glass Cannon Core equipped");
+  }
+ });
+
+ makeAbilityDef({
+  id:"death_bloom", name:"Death Bloom",
+  desc:"Enemies explode on death (small AoE).",
+  icon:"🌸", hue:320, kind:"passive", rarity:5,
+  onPick: ()=>{
+    state._deathBloom = true;
+    showToast("Death Bloom equipped");
+  }
+ });
+
+
+// Passives
+ makeAbilityDef({ id:"up_pow", name:"+Power", desc:"Increase power by +3.", icon:"🟥", hue: 8, kind:"passive", weight:0.60, rarity:1, onPick:()=>{ state.player.basePow += 3; } });
+ makeAbilityDef({ id:"up_hp", name:"+Max HP", desc:"Increase max HP by +20 (heal +20).", icon:"🟩", hue: 150, kind:"passive", weight:0.60, rarity:1, onPick:()=>{ state.player.maxHp += 20; state.player.hp = clamp(state.player.hp + 20, 0, state.player.maxHp); }});
+ makeAbilityDef({ id:"up_crit", name:"+Crit", desc:"Increase crit chance by +5%.", icon:"🟨", hue: 55, kind:"passive", rarity:2, onPick:()=>{ state.player.crit = clamp(state.player.crit + 0.05, 0, 0.60); }});
+ makeAbilityDef({ id:"up_regen", name:"+Regen", desc:"Increase HP regen +0.8/s.", icon:"🟢", hue: 290, kind:"passive", rarity:2, onPick:()=>{ state.player.regenHp += 0.8; }});
+ makeAbilityDef({ id:"up_armor", name:"Iron Guard", desc:"Reduce incoming damage by 12% (stacks).", icon:"🛡️", hue: 190, kind:"passive", rarity:3, onPick:()=>{ state.player.armor = clamp(state.player.armor + 0.12, 0, 0.65); }});
+ makeAbilityDef({ id:"up_xp", name:"Training Boost", desc:"Gain +25% XP from kills.", icon:"📈", hue: 110, kind:"passive", rarity:2, onPick:()=>{ state._xpMult *= 1.08; }});
+ makeAbilityDef({
+ id:"special_beam", name:"Piercing Cannon",
+ desc:"A piercing lance beam that drills through enemies in a line.",
+ icon:"🟢", hue: 110, cooldownMs:5200, kind:"active", rarity:3,
+ onUse: ()=>{
+  const t = findNearestEnemy();
+  if(!t) return false;
+
+  // Charge-up flare (bigger + louder visually)
+  addEffectRing(state.player.x, state.player.y, 36, 320, 300);
+  addEffectRing(state.player.x, state.player.y, 58, 320, 320);
+  emitParticles(state.player.x, state.player.y, 90, 300, 120, 720, 380, 1050, 1.3, 5.2, 1.22);
+
+  // Fire: thicker, longer, piercing
+  fireBeam(state.player.x, state.player.y, t.x, t.y, {
+    dmg: Math.round(state.player.basePow*2.6 + 18),
+    pierce: 7,
+    width: 18,
+    hue: 110
+  });
+  return true;
+ }
+});
+
+makeAbilityDef({
+  id:"up_extrasuper",
+  name:"Overcharge Slot",
+  desc:"Gain +1 Super slot (max +2 total).",
+  icon:"➕", hue: 120, kind:"passive", rarity:5,
+  onPick:()=>{
+    state._extraSuperSlots = (state._extraSuperSlots||0) + 1;
+    state._extraSuperSlots = Math.min(2, state._extraSuperSlots); // cap at +2
+    // base cap is 3, overcharge can push to 5
+    state.maxSupers = Math.min(3 + state._extraSuperSlots, 5);
+  }
+});
+
+makeAbilityDef({ id:"up_fastcast", name:"Fast Hands", desc:"Reduce super cooldowns by 12%.", icon:"⏱️", hue: 320, kind:"passive", rarity:3, onPick:()=>{ state._cdr *= 0.88; }});
+ 
+
+ function resetRun(){
+ state.running = false;
+ state.pausedForChoice = false;
+
+ state.gameOver = false;
+
+ state.wave = 1;
+ state.killsInWave = 0;
+ state.killsToAdvance = 8;
+
+ 
+    state.runTimeSec = 0;
+state.enemies = [];
+ state.projectiles = [];
+ state.effects = [];
+ state.particles = [];
+ state.floatingText = [];
+ state.spawn.timer = 0;
+
+ state.xp = 0;
+ state.xpToNext = 25;
+ state.level = 1;
+
+ state.player.maxHp = 110; state.player.hp = 110;
+ state.player.basePow = 7;
+ state.player.crit = 0.08;
+ state.player.regenHp = 1.4;
+ state.player.attackRange = 320;
+ state.player.armor = 0.0;
+
+ state.autoAbilities = [];
+ state._xpMult = 1;
+ state._cdr = 1;
+ state._magnet = 0;
+
+ state.rerollsLeft = 3;
+ state.banishesLeft = 3;
+ state._banished = {};
+
+
+ ui.runTitle.textContent = "Neon DBZ Run";
+ ui.waveChip.textContent = "Wave 1";
+
+ addAbility("energy_orb");
+
+ renderIcons();
+ updateUI(true);
+ draw();
+ showToast("Ready. Tap ▶️ to start.");
+ }
+
+ 
+function startRun(){
+ hideTitleScreen();
+ state.hasStarted = true;
+ resetRun();
+
+ // Tutorial mode (optional)
+ state.tutorial = !!__tutorialModeRequested;
+ state._tut = {
+   introShown:false,
+   levelUpShown:false,
+   rerollShown:false,
+   banishShown:false,
+   eliteShown:false,
+ };
+
+ state.running = true;
+
+ if(state.tutorial){
+   showToastLong("Tutorial Mode: survive, level up, and stack upgrades.", 2600);
+   setTimeout(()=> showToastLong("Drag to move. Supers auto-fire when unlocked.", 2600), 850);
+   setTimeout(()=> showToastLong("Tip: You can Reroll (x3) or Banish (x3) options on level-up.", 2800), 1750);
+ }else{
+   showToast("SPECIALS ONLY: supers auto-fire on cooldown.");
+ }
+ setStartIcon();
+}
+
+
+ function initBackground(){
+ state.bgDots = [];
+ state.bgStreaks = [];
+ const rect = canvas.getBoundingClientRect();
+ for(let i=0;i<120;i++){
+ state.bgDots.push({
+ x: rand(0, rect.width),
+ y: rand(0, rect.height),
+ r: rand(0.6, 2.4),
+ hue: rand(0, 360),
+ a: rand(0.07, 0.24),
+ vx: rand(-12, 12),
+ vy: rand(-12, 12),
+ });
+ }
+ for(let i=0;i<34;i++){
+ state.bgStreaks.push({
+ x: rand(0, rect.width),
+ y: rand(0, rect.height),
+ hue: rand(0, 360),
+ a: rand(0.05, 0.16),
+ vx: rand(-38, 38),
+ vy: rand(-38, 38),
+ });
+ }
+ }
+ function updateBackground(dt){
+ const rect = canvas.getBoundingClientRect();
+ const w = rect.width, h = rect.height;
+ for(const d of state.bgDots){
+ d.x += d.vx * (dt/1000);
+ d.y += d.vy * (dt/1000);
+ if(d.x < -20) d.x = w+20;
+ if(d.x > w+20) d.x = -20;
+ if(d.y < -20) d.y = h+20;
+ if(d.y > h+20) d.y = -20;
+ d.hue = (d.hue + dt*0.012 + state.wave*0.025) % 360;
+ }
+ for(const s of state.bgStreaks){
+ s.x += s.vx * (dt/1000);
+ s.y += s.vy * (dt/1000);
+ if(s.x < -120) s.x = w+120;
+ if(s.x > w+120) s.x = -120;
+ if(s.y < -120) s.y = h+120;
+ if(s.y > h+120) s.y = -120;
+ s.hue = (s.hue + dt*0.02 + state.wave*0.04) % 360;
+ }
+ }
+
+function spawnLogic(dt){
+ state.spawn.timer -= dt;
+ if(state.spawn.timer <= 0){
+  // Faster interval shrink so pressure ramps in endless mode.
+  const interval = Math.max(240, state.spawn.baseInterval - Math.min(state.wave, 55)*10);
+  state.spawn.timer = interval;
+
+  // More bodies sooner; capped to keep mobile performance reasonable.
+  let spawnCount = 2;
+  if(state.wave >= 5)  spawnCount = 3;
+  if(state.wave >= 10) spawnCount = 4;
+  if(state.wave >= 16) spawnCount = 5;
+  if(state.wave >= 26) spawnCount = 6;
+  spawnCount = clamp(spawnCount, 2, 6);
+
+  for(let i=0;i<spawnCount;i++) spawnEnemy();
+ }
+}
+
+ function updateParticles(dt){
+ const k = dt/1000;
+ // integrate
+ for(let i=0;i<state.particles.length;i++){
+ const p = state.particles[i];
+ p.t += dt;
+ p.vx *= Math.pow(p.drag, k*60);
+ p.vy *= Math.pow(p.drag, k*60);
+ p.x += p.vx * k;
+ p.y += p.vy * k;
+ }
+ // compact in-place + return expired to pool (avoids GC spikes)
+ let w = 0;
+ for(let i=0;i<state.particles.length;i++){
+ const p = state.particles[i];
+ if(p.t < p.life){
+ state.particles[w++] = p;
+ }else{
+ freeParticle(p);
+ }
+ }
+ state.particles.length = w;
+
+ // hard cap safety
+ if(state.particles.length > MAX_PARTICLES){
+ for(let i=0;i<state.particles.length - MAX_PARTICLES;i++){
+ freeParticle(state.particles[i]);
+ }
+ state.particles.splice(0, state.particles.length - MAX_PARTICLES);
+ }
+}
+ function update(dt){
+ const p = state.player;
+ p.hp = clamp(p.hp + p.regenHp * (dt/1000), 0, p.maxHp);
+
+ // Endless difficulty ramps with time survived (use wave as a hidden difficulty tier).
+ state.runTimeSec += dt/1000;
+ const tsec = state.runTimeSec;
+ const baseTier = 1 + Math.floor(tsec/18);                 // +1 tier every 18s (slightly easier)
+ const accelTier = Math.floor(Math.max(0, tsec - 150)/35);  // extra ramp after 2.5 minutes
+ state.wave = baseTier + accelTier;
+
+ spawnLogic(dt);
+ tickAbilities();
+
+ // Cooldowns for rare passives
+ if(state._reactiveBarrierCd > 0) state._reactiveBarrierCd = Math.max(0, state._reactiveBarrierCd - dt);
+
+ // Nova Spiral orbitals
+ for(const o of state.orbitals){
+   o.t += dt;
+   const tt = o.t/1000;
+   const alive = o.t < o.life;
+   if(!alive) continue;
+
+   // Tick damage 6 times total over life
+   o.tickAcc += dt;
+   const tickEvery = o.life / o.ticks;
+   while(o.tickIndex < o.ticks && o.tickAcc >= tickEvery){
+     o.tickAcc -= tickEvery;
+     o.tickIndex++;
+     // sample orb positions at this moment
+     for(let i=0;i<o.count;i++){
+       const ang = tt*3.2 + i*(Math.PI*2/o.count);
+       const ox = state.player.x + Math.cos(ang)*o.radius;
+       const oy = state.player.y + Math.sin(ang)*o.radius;
+       const hue = (now()*0.25 + i*120) % 360;
+       addEffectRing(ox, oy, 18, 220, hue);
+       for(const e of state.enemies){
+         if(e._dead || !e.targetable) continue;
+         if(dist(e.x,e.y,ox,oy) <= e.r + 14){
+           dealDamageToEnemy(e, o.dmg, { knock: 140, hue });
+         }
+       }
+     }
+   }
+ }
+ state.orbitals = state.orbitals.filter(o => o.t < o.life);
+
+ // Gravity Crush wells
+ for(const g of state.gravityWells){
+   g.t += dt;
+   // pull phase
+   if(g.t < g.pullMs){
+     for(const e of state.enemies){
+       if(e._dead || !e.targetable) continue;
+       const dd = dist(e.x,e.y,g.x,g.y);
+       if(dd <= g.radius + e.r){
+         const ux = (g.x - e.x) / Math.max(1, dd);
+         const uy = (g.y - e.y) / Math.max(1, dd);
+         const strength = (1 - (dd/(g.radius+e.r))) * 520;
+         e.x += ux * strength * (dt/1000);
+         e.y += uy * strength * (dt/1000);
+       }
+     }
+     if(Math.random() < 0.35){
+       emitParticles(g.x + rand(-6,6), g.y + rand(-6,6), 22, g.hue, 130, 420, 320, 920, 1.1, 3.8, 1.2);
+     }
+   }
+   // collapse
+   if(!g.collapsed && g.t >= g.pullMs){
+     g.collapsed = true;
+     addEffectNova(g.x, g.y, g.radius, g.hue);
+     addEffectRing(g.x, g.y, 46, 360, g.hue);
+     addEffectRing(g.x, g.y, 78, 360, (g.hue+30)%360);
+     emitParticles(g.x, g.y, 220, g.hue, 200, 880, 520, 1500, 1.3, 6.2, 1.35);
+     for(const e of state.enemies){
+       if(e._dead || !e.targetable) continue;
+       const dd = dist(e.x,e.y,g.x,g.y);
+       if(dd <= g.radius + e.r){
+         const scale = 1 - (dd/(g.radius+e.r));
+         const dmg = Math.round(g.dmg * (0.70 + 0.60*scale));
+         dealDamageToEnemy(e, dmg, { knock: 360, hue: g.hue });
+       }
+     }
+   }
+ }
+ state.gravityWells = state.gravityWells.filter(g => g.t < g.life);
+
+ const auraHue = (210 + state.wave*10 + now()*0.03) % 360;
+ emitTrail(p.x + rand(-7,7), p.y + rand(-7,7), auraHue, 2);
+
+ for(const e of state.enemies){
+ const dx = p.x - e.x, dy = p.y - e.y;
+ const d = Math.hypot(dx,dy) || 1;
+ const ux = dx/d, uy = dy/d;
+
+ // Mark enemy as targetable only after it enters the visible arena (prevents killing off-screen).
+ if(!e.targetable){
+ const rect = canvas.getBoundingClientRect();
+ const m = 0; // must be on-screen to become targetable
+ if(e.x > -m && e.x < rect.width + m && e.y > -m && e.y < rect.height + m){
+ e.targetable = true;
+ }
+ }
+
+ const mag = state._magnet || 0;
+ const pull = mag > 0 ? (mag * (dt/1000) * 46) : 0;
+
+ if(e.knock.t > 0){
+ const k = e.knock.t/170;
+ e.x -= e.knock.x * (dt/1000) * k;
+ e.y -= e.knock.y * (dt/1000) * k;
+ e.knock.t = Math.max(0, e.knock.t - dt);
+ }else{
+ e.x += ux * (e.speed + pull) * (dt/1000);
+ e.y += uy * (e.speed + pull) * (dt/1000);
+ }
+
+ e.hitFlash = Math.max(0, e.hitFlash - dt);
+ enemyAttackPlayer(e, dt);
+
+ if(Math.random() < 0.22){
+ emitTrail(e.x + rand(-6,6), e.y + rand(-6,6), e.hue, 1);
+ }
+ }
+
+ for(const pr of state.projectiles){
+ pr.t += dt;
+ pr.x += pr.vx * (dt/1000);
+ pr.y += pr.vy * (dt/1000);
+
+ emitTrail(pr.x, pr.y, pr.hue, pr.type === "big_orb" ? 3 : (pr.type === "disc_saw" ? 2 : (pr.type==="rapid_ki" ? 2 : 1)));
+
+ for(const e of state.enemies){
+ if(e._dead) continue;
+ if(!e.targetable) continue;
+ if(dist(pr.x, pr.y, e.x, e.y) <= pr.r + e.r){
+ if(pr.explodeRadius){
+ const R = pr.explodeRadius;
+ addEffectNova(pr.x, pr.y, R, pr.hue);
+ emitParticles(pr.x, pr.y, 180, pr.hue, 180, 860, 420, 1500, 1.2, 5.6, 1.32);
+ addEffectRing(pr.x, pr.y, 30, 320, pr.hue);
+ addEffectRing(pr.x, pr.y, 58, 320, (pr.hue+20)%360);
+ for(const ee of state.enemies){
+ const dd = dist(ee.x, ee.y, pr.x, pr.y);
+ if(dd <= R + ee.r){
+ const scale = 1 - (dd/(R+ee.r));
+ const dmg = Math.round(pr.dmg * (0.55 + 0.65*scale));
+ dealDamageToEnemy(ee, dmg, { knock: 210, hue: pr.hue });
+ }
+ }
+ pr.life = 0;
+ break;
+ }
+
+ dealDamageToEnemy(e, pr.dmg, { knock: 100, hue: pr.hue });
+ pr.pierce--;
+ addEffectSpark(pr.x, pr.y, pr.hue);
+ emitParticles(pr.x, pr.y, 28, pr.hue, 110, 420, 280, 860, 1.0, 3.4, 1.15);
+ if(pr.pierce < 0){ pr.life = 0; break; }
+ }
+ }
+ pr.life -= dt;
+ }
+ state.projectiles = state.projectiles.filter(p => p.life > 0);
+
+ for(const fx of state.effects){ fx.t += dt; }
+ state.effects = state.effects.filter(fx => fx.t < fx.life);
+
+ for(const ft of state.floatingText){ ft.t += dt; ft.y -= 20 * (dt/1000); }
+ state.floatingText = state.floatingText.filter(ft => ft.t < ft.life);
+
+ updateParticles(dt);
+ state.enemies = state.enemies.filter(e => !e._dead);
+
+ if(p.hp <= 0){
+ const hue = (now()*0.08) % 360;
+ addEffectNova(p.x, p.y, 220, hue);
+ addEffectRing(p.x, p.y, 90, 420, (hue+60)%360);
+ emitParticles(p.x, p.y, 220, hue, 220, 980, 620, 1650, 1.6, 5.0, 1.35);
+ emitParticles(p.x, p.y, 140, (hue+140)%360, 160, 820, 520, 1500, 1.3, 4.6, 1.30);
+ state.gameOver = true;
+
+ state.running = false;
+ showToast(`Defeated on Wave ${state.wave}. Tap ▶️ to try again.`);
+ setStartIcon();
+ }
+ }
+
+ function drawGlowCircle(x,y,r,color){
+ ctx.beginPath();
+ ctx.arc(x,y,r,0,Math.PI*2);
+ ctx.fillStyle = color;
+ ctx.fill();
+ }
+
+ function roundRect(ctx, x, y, w, h, r){
+ r = Math.min(r, w/2, h/2);
+ ctx.beginPath();
+ ctx.moveTo(x+r, y);
+ ctx.arcTo(x+w, y, x+w, y+h, r);
+ ctx.arcTo(x+w, y+h, x, y+h, r);
+ ctx.arcTo(x, y+h, x, y, r);
+ ctx.arcTo(x, y, x+w, y, r);
+ ctx.closePath();
+ }
+
+ function draw(){
+ const rect = canvas.getBoundingClientRect();
+ const w = rect.width, h = rect.height;
+ ctx.clearRect(0,0,w,h);
+
+ for(const d of state.bgDots){
+ ctx.beginPath();
+ ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+ ctx.fillStyle = rgbaFromHsv(d.hue, 0.95, 0.95, d.a);
+ ctx.fill();
+ }
+ for(const s of state.bgStreaks){
+ ctx.save();
+ ctx.globalAlpha = s.a;
+ ctx.strokeStyle = rgbaFromHsv(s.hue, 0.95, 0.95, 1);
+ ctx.lineWidth = 2;
+ ctx.beginPath();
+ ctx.moveTo(s.x, s.y);
+ ctx.lineTo(s.x + s.vx*0.85, s.y + s.vy*0.85);
+ ctx.stroke();
+ ctx.restore();
+ }
+
+ for(const p of state.particles){
+ const t = p.t / p.life;
+ const a = p.a * (1 - t);
+ if(a <= 0.01) continue;
+
+ ctx.beginPath();
+ ctx.arc(p.x, p.y, p.r*2.4, 0, Math.PI*2);
+ ctx.fillStyle = rgbaFromHsv(p.hue, 0.95, 0.95, a * p.glow);
+ ctx.fill();
+
+ ctx.beginPath();
+ ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+ ctx.fillStyle = rgbaFromHsv(p.hue, 0.55, 1.0, a);
+ ctx.fill();
+ }
+
+ const pl = state.player;
+ const baseHue = (210 + state.wave*10 + now()*0.03) % 360;
+ const pulse = 0.5 + 0.5*Math.sin(now()/190);
+
+ drawGlowCircle(pl.x,pl.y, pl.r + 20 + pulse*8, rgbaFromHsv(baseHue, 0.95, 0.95, 0.18));
+ drawGlowCircle(pl.x,pl.y, pl.r + 12 + pulse*6, rgbaFromHsv((baseHue+90)%360, 0.95, 0.95, 0.10));
+
+ ctx.save();
+ ctx.translate(pl.x, pl.y);
+ ctx.beginPath();
+ ctx.arc(0,0,pl.r+10,0,Math.PI*2);
+ ctx.strokeStyle = rgbaFromHsv(baseHue, 0.95, 0.95, 0.36);
+ ctx.lineWidth = 3;
+ ctx.stroke();
+
+ const grd = ctx.createLinearGradient(-pl.r, -pl.r, pl.r, pl.r);
+ grd.addColorStop(0, rgbaFromHsv(baseHue, 0.95, 0.90, 0.34));
+ grd.addColorStop(0.5, rgbaFromHsv((baseHue+40)%360, 0.95, 0.90, 0.30));
+ grd.addColorStop(1, rgbaFromHsv((baseHue+110)%360, 0.95, 0.90, 0.24));
+ ctx.beginPath();
+ ctx.arc(0,0,pl.r,0,Math.PI*2);
+ ctx.fillStyle = grd;
+ ctx.fill();
+
+ ctx.beginPath();
+ ctx.arc(-5,-5,pl.r*0.55,0,Math.PI*2);
+ ctx.fillStyle = "rgba(255,255,255,0.22)";
+ ctx.fill();
+ ctx.restore();
+
+
+ // Nova Spiral visuals (orbiting orbs)
+ for(const o of state.orbitals){
+   const tt = o.t/1000;
+   for(let i=0;i<o.count;i++){
+     const ang = tt*3.2 + i*(Math.PI*2/o.count);
+     const ox = pl.x + Math.cos(ang)*o.radius;
+     const oy = pl.y + Math.sin(ang)*o.radius;
+     const hue = (now()*0.25 + i*120) % 360;
+
+     drawGlowCircle(ox, oy, 18, rgbaFromHsv(hue, 0.95, 0.95, 0.16));
+     ctx.beginPath();
+     ctx.arc(ox, oy, 7.2, 0, Math.PI*2);
+     ctx.fillStyle = rgbaFromHsv(hue, 0.35, 1.0, 0.55);
+     ctx.fill();
+
+     // vivid rainbow trail
+     if(Math.random() < 0.55){
+       emitTrail(ox + rand(-2,2), oy + rand(-2,2), hue, 2);
+     }
+   }
+ }
+
+ for(const e of state.enemies){
+ const hpPct = clamp(e.hp / e.maxHp, 0, 1);
+
+ drawGlowCircle(e.x,e.y, e.r + 18, rgbaFromHsv(e.hue, 0.95, 0.95, e.isElite ? 0.20 : 0.12));
+ drawGlowCircle(e.x,e.y, e.r + 10, rgbaFromHsv((e.hue+40)%360, 0.95, 0.95, 0.08));
+
+ ctx.save();
+ ctx.translate(e.x,e.y);
+
+ const g = ctx.createLinearGradient(-e.r, -e.r, e.r, e.r);
+ g.addColorStop(0, rgbaFromHsv(e.hue, 0.95, 0.95, e.isElite ? 0.30 : 0.20));
+ g.addColorStop(0.5, rgbaFromHsv((e.hue+40)%360, 0.95, 0.95, 0.14));
+ g.addColorStop(1, rgbaFromHsv((e.hue+120)%360, 0.95, 0.95, 0.10));
+
+ ctx.beginPath();
+ ctx.arc(0,0,e.r,0,Math.PI*2);
+ ctx.fillStyle = g;
+ ctx.fill();
+
+ if(e.hitFlash > 0){
+ ctx.globalAlpha = clamp(e.hitFlash/160, 0, 1);
+ ctx.beginPath();
+ ctx.arc(0,0,e.r+2,0,Math.PI*2);
+ ctx.strokeStyle = "rgba(255,255,255,0.72)";
+ ctx.lineWidth = 3;
+ ctx.stroke();
+ ctx.globalAlpha = 1;
+ }
+
+ const bw = e.r*2.0;
+ const bh = 6;
+ ctx.save();
+ ctx.translate(-bw/2, -e.r - 14);
+ roundRect(ctx, 0, 0, bw, bh, 999);
+ ctx.fillStyle = "rgba(255,255,255,0.10)";
+ ctx.fill();
+ roundRect(ctx, 0, 0, bw*hpPct, bh, 999);
+ ctx.fillStyle = rgbaFromHsv(e.hue, 0.95, 0.95, 0.82);
+ ctx.fill();
+ ctx.restore();
+
+ ctx.restore();
+ }
+
+ 
+ for(const pr of state.projectiles){
+   const glowA = 0.18 * (pr.glow || 1);
+   const coreA = 0.46 * (0.85 + 0.15*(pr.glow||1));
+
+   // extra glow for special projectiles
+   const extra = (pr.type === "big_orb") ? 30 : (pr.type === "disc_saw" ? 24 : 16);
+   drawGlowCircle(pr.x, pr.y, pr.r + extra, rgbaFromHsv(pr.hue, 0.95, 0.95, glowA));
+
+   ctx.save();
+   ctx.translate(pr.x, pr.y);
+
+   // Saw disc: sharp spiked edges + spin
+   if(pr.type === "disc_saw"){
+     const rot = (now()*0.012 + pr.t*0.001*(pr.spin||8));
+     ctx.rotate(rot);
+     const spikes = 14;
+     const rOuter = pr.r*1.05;
+     const rInner = pr.r*0.62;
+     ctx.beginPath();
+     for(let i=0;i<spikes;i++){
+       const a = i*(Math.PI*2/spikes);
+       ctx.lineTo(Math.cos(a)*rOuter, Math.sin(a)*rOuter);
+       const a2 = a + (Math.PI*2/spikes)*0.5;
+       ctx.lineTo(Math.cos(a2)*rInner, Math.sin(a2)*rInner);
+     }
+     ctx.closePath();
+     ctx.fillStyle = rgbaFromHsv(pr.hue, 0.75, 1.0, 0.70);
+     ctx.fill();
+
+     ctx.beginPath();
+     ctx.arc(0,0,pr.r*0.55,0,Math.PI*2);
+     ctx.fillStyle = rgbaFromHsv(pr.hue, 0.25, 1.0, 0.55);
+     ctx.fill();
+
+     // bright rim
+     ctx.beginPath();
+     ctx.arc(0,0,pr.r*0.92,0,Math.PI*2);
+     ctx.strokeStyle = "rgba(255,255,255,0.55)";
+     ctx.lineWidth = 2.5;
+     ctx.stroke();
+   }
+   // Big blast orb: chunky bright orange ball
+   else if(pr.type === "big_orb"){
+     const g = ctx.createRadialGradient(-pr.r*0.25, -pr.r*0.25, pr.r*0.2, 0,0, pr.r*1.35);
+     g.addColorStop(0, "rgba(255,255,255,0.70)");
+     g.addColorStop(0.25, rgbaFromHsv(pr.hue, 0.40, 1.0, 0.85));
+     g.addColorStop(1, rgbaFromHsv(pr.hue, 0.95, 0.95, 0.18));
+     ctx.beginPath();
+     ctx.arc(0,0,pr.r,0,Math.PI*2);
+     ctx.fillStyle = g;
+     ctx.fill();
+
+     ctx.beginPath();
+     ctx.arc(-pr.r*0.25,-pr.r*0.25, pr.r*0.40, 0, Math.PI*2);
+     ctx.fillStyle = "rgba(255,255,255,0.45)";
+     ctx.fill();
+   }
+   // Default orb
+   else{
+     ctx.beginPath();
+     ctx.arc(0,0,pr.r,0,Math.PI*2);
+     ctx.fillStyle = rgbaFromHsv(pr.hue, 0.35, 1.0, coreA);
+     ctx.fill();
+     ctx.beginPath();
+     ctx.arc(-1.5,-1.5, pr.r*0.45, 0, Math.PI*2);
+     ctx.fillStyle = "rgba(255,255,255,0.42)";
+     ctx.fill();
+   }
+   ctx.restore();
+ }
+
+
+ for(const fx of state.effects){
+ const t = fx.t / fx.life;
+ const hue = fx.hue ?? baseHue;
+ if(fx.kind === "ring"){
+ const r = lerp(fx.r*0.6, fx.r*1.85, t);
+ ctx.save();
+ ctx.globalAlpha = 0.82*(1-t);
+ ctx.beginPath();
+ ctx.arc(fx.x, fx.y, r, 0, Math.PI*2);
+ ctx.strokeStyle = rgbaFromHsv(hue, 0.95, 0.95, 0.66);
+ ctx.lineWidth = 4.0;
+ ctx.stroke();
+ ctx.restore();
+ }
+ if(fx.kind === "nova"){
+ const r = lerp(10, fx.r, t);
+ ctx.save();
+ ctx.globalAlpha = 0.62*(1-t);
+ ctx.beginPath();
+ ctx.arc(fx.x, fx.y, r, 0, Math.PI*2);
+ ctx.strokeStyle = rgbaFromHsv(hue, 0.95, 0.95, 0.80);
+ ctx.lineWidth = 16*(1-t) + 2;
+ ctx.stroke();
+ ctx.restore();
+ }
+ if(fx.kind === "spark"){
+ ctx.save();
+ ctx.translate(fx.x, fx.y);
+ ctx.globalAlpha = 0.92*(1-t);
+ ctx.strokeStyle = rgbaFromHsv(hue, 0.95, 0.95, 0.86);
+ ctx.lineWidth = 2;
+ for(let i=0;i<8;i++){
+ const ang = (i/8)*Math.PI*2 + (now()/620);
+ ctx.beginPath();
+ ctx.moveTo(0,0);
+ ctx.lineTo(Math.cos(ang)*18, Math.sin(ang)*18);
+ ctx.stroke();
+ }
+ ctx.restore();
+ }
+ if(fx.kind === "beam"){
+ ctx.save();
+ ctx.globalAlpha = 0.96*(1-t);
+ ctx.lineCap = "round";
+ const x1 = fx.x + fx.ux*fx.len;
+ const y1 = fx.y + fx.uy*fx.len;
+
+ ctx.strokeStyle = rgbaFromHsv(hue, 0.95, 0.95, 0.30);
+ ctx.lineWidth = fx.width*3.1;
+ ctx.beginPath();
+ ctx.moveTo(fx.x, fx.y);
+ ctx.lineTo(x1, y1);
+ ctx.stroke();
+
+ ctx.strokeStyle = rgbaFromHsv(hue, 0.55, 1.0, 0.64);
+ ctx.lineWidth = fx.width;
+ ctx.beginPath();
+ ctx.moveTo(fx.x, fx.y);
+ ctx.lineTo(x1, y1);
+ ctx.stroke();
+
+ ctx.strokeStyle = "rgba(255,255,255,0.44)";
+ ctx.lineWidth = Math.max(2.2, fx.width*0.35);
+ ctx.beginPath();
+ ctx.moveTo(fx.x, fx.y);
+ ctx.lineTo(x1, y1);
+ ctx.stroke();
+
+ ctx.restore();
+ }
+ }
+
+ for(const ft of state.floatingText){
+ const t = ft.t / ft.life;
+ ctx.save();
+ ctx.globalAlpha = 1 - t;
+ ctx.font = "950 13px " + getComputedStyle(document.body).fontFamily;
+ ctx.textAlign = "center";
+ ctx.textBaseline = "middle";
+ const color =
+ ft.type === "good" ? "rgba(60,255,190,0.98)" :
+ ft.type === "bad" ? "rgba(255,90,120,0.98)" :
+ ft.type === "warn" ? "rgba(255,230,120,0.98)" :
+ "rgba(255,255,255,0.92)";
+ ctx.fillStyle = color;
+ ctx.fillText(ft.text, ft.x, ft.y);
+ ctx.restore();
+ }
+ }
+
+ function updateUI(force=false){
+ const p = state.player;
+ ui.hpText.textContent = `${Math.round(p.hp)}/${Math.round(p.maxHp)}`;
+ ui.xpText.textContent = `${Math.round(state.xp)}/${Math.round(state.xpToNext)}`;
+ ui.lvText.textContent = `${state.level}`;
+ ui.powText.textContent = `${Math.round(p.basePow)}`;
+ ui.critText.textContent = `${Math.round(p.crit*100)}`;
+ ui.regenText.textContent = `${p.regenHp.toFixed(1)}`;
+ ui.hpFill.style.width = `${Math.round((p.hp/p.maxHp)*100)}%`;
+ ui.xpFill.style.width = `${Math.round((state.xp/state.xpToNext)*100)}%`;
+ ui.waveChip.textContent = `Wave ${state.wave}`;
+ updateIconCooldowns();
+ }
+
+ function setStartIcon(){
+ const icon = ui.btnStart.querySelector('.ctrlIcon');
+ if(!icon) return;
+ icon.textContent = state.running ? "⏸️" : "▶️";
+ }
+
+ ui.btnStart.addEventListener('click', ()=>{
+ // If the run has never started OR the player is defeated, start a fresh run.
+ if(!state.hasStarted || state.gameOver){
+ startRun();
+ setStartIcon();
+ return;
+ }
+ // Otherwise, this button is purely pause/resume.
+ if(state.pausedForChoice) return;
+ state.running = !state.running;
+ showToast(state.running ? "Running" : "Paused");
+ setStartIcon();
+ });
+ ui.btnReset.addEventListener('click', ()=>{ resetRun(); showToast("Reset."); setStartIcon(); });
+
+
+
+
+// Title screen: explicit buttons (PLAY / TUTORIAL)
+let __tutorialModeRequested = false;
+if(ui.titleScreen){
+  const playBtn = document.getElementById('btnPlay');
+  const tutBtn  = document.getElementById('btnTutorial');
+
+  const startNormal = (ev)=>{
+    ev?.preventDefault?.();
+    __tutorialModeRequested = false;
+    startRun();
+  };
+  const startTutorial = (ev)=>{
+    ev?.preventDefault?.();
+    __tutorialModeRequested = true;
+    startRun();
+  };
+
+  playBtn?.addEventListener('click', startNormal);
+  tutBtn?.addEventListener('click', startTutorial);
+
+  // Also support keyboard/enter focus
+  playBtn?.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') startNormal(e); });
+  tutBtn?.addEventListener('keydown',  (e)=>{ if(e.key==='Enter' || e.key===' ') startTutorial(e); });
+}
+
+
+ // Level-up reroll (3 per run)
+ 
+ui.rerollBtn.addEventListener('click', ()=>{
+ if(!state.pausedForChoice) return;
+ if(state.rerollsLeft <= 0) return;
+ rerollChoices();
+ if(state.tutorial && state._tut && !state._tut.rerollShown){
+   state._tut.rerollShown = true;
+   showToastLong("Reroll spent: rerolls are limited per run, so save some for tough decisions.", 3000);
+ }
+});
+// --- Spawn safety (prevents rare "nothing spawns" regressions) ---
+ function ensurePlayerValid(){
+ if(!Number.isFinite(state.player.x) || !Number.isFinite(state.player.y)){
+ setCenterPlayer();
+ }
+ }
+
+ function spawnSafetyTick(){
+ // If running and not in a choice screen, ensure at least one enemy appears shortly after start.
+ if(!state.running || state.pausedForChoice) return;
+ ensurePlayerValid();
+
+ state._sinceAnyEnemy = (state._sinceAnyEnemy || 0) + state.dt;
+ if(state.enemies && state.enemies.length > 0){
+ state._sinceAnyEnemy = 0;
+ return;
+ }
+
+ // After 1200ms with zero enemies, force-spawn one (still respects off-screen targetable rule).
+ if(state._sinceAnyEnemy > 1200){
+ spawnEnemy();
+ state._sinceAnyEnemy = 0;
+ }
+ }
+
+ function loop(){
+ const t = now();
+ state.dt = Math.min(40, t - state.last);
+ state.last = t;
+ // Lightweight FPS smoothing (used to keep visuals while avoiding frame drops)
+ const instFps = 1000 / Math.max(1, state.dt);
+ state.perf.fpsSmooth = state.perf.fpsSmooth*0.92 + instFps*0.08;
+ state.perf.fps = state.perf.fpsSmooth;
+ // Adaptive particle multiplier: full visuals when stable, slight throttling only if FPS dips
+ state.perf.pMult = (state.perf.fps > 56) ? 1 : (state.perf.fps > 48 ? 0.85 : (state.perf.fps > 40 ? 0.72 : 0.60));
+
+ 
+
+ // Safety: make sure player/enemies always exist.
+ spawnSafetyTick();
+updateBackground(state.dt);
+
+ if(state.running && !state.pausedForChoice){
+ update(state.dt);
+ }else{
+ updateParticles(state.dt);
+ }
+
+ updateUI(false);
+ draw();
+ requestAnimationFrame(loop);
+ }
+
+ // Surface runtime errors (useful for browser-specific issues like Firefox)
+window.onerror = function(msg, src, line, col, err){
+  try{
+    state.running = false;
+    state.pausedForChoice = true;
+    ui.overlay.classList.add('show');
+    ui.modalTitle.textContent = "Runtime Error";
+    ui.modalDesc.textContent = String(msg) + " @ " + line + ":" + col;
+    ui.choices.innerHTML = "<div class='meta' style='opacity:0.9'>Try the FIX7 build. If this persists, tell me your Firefox version.</div>";
+  }catch(e){}
+  return false;
+};
+
+function init(){
+ resize();
+ setCenterPlayer();
+ initBackground();
+ resetRun();
+ renderIcons();
+ showToast("SPECIALS ONLY ready. Tap ▶️ to start.");
+
+ setInterval(()=>{
+ resize();
+ setCenterPlayer();
+ }, 900);
+
+ loop();
+ }
+
+ init();
+</script>
+
+<!-- Tutorial Coach Marks -->
+<div class="coachLayer" id="coachLayer" aria-hidden="true">
+  <div class="coachDim"></div>
+  <div class="coachHighlight" id="coachHighlight"></div>
+  <div class="coachBubble" id="coachBubble" role="dialog" aria-live="polite">
+    <div class="coachText" id="coachText"></div>
+    <div class="coachActions">
+      <button class="coachBtn" id="coachOk" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
