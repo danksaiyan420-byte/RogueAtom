@@ -723,7 +723,7 @@
 
 // --- Music (title + randomized gameplay playlist) ---
 const music = (()=> {
-  const title = new Audio('songs/main.mp3');
+  const title = new Audio('main.mp3');
   title.loop = true;
   title.preload = 'auto';
   title.volume = 0.55;
@@ -734,11 +734,11 @@ const music = (()=> {
   gameplay.volume = 0.45;
 
   const tracks = [
-    'songs/music1.mp3',
-    'songs/music2.mp3',
-    'songs/music3.mp3',
-    'songs/music4.mp3',
-    'songs/music5.mp3',
+    'music1.mp3',
+    'music2.mp3',
+    'music3.mp3',
+    'music4.mp3',
+    'music5.mp3',
   ];
 
   let unlocked = false;
