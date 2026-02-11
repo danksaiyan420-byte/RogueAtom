@@ -724,11 +724,37 @@
 // Files are expected in the ROOT (same folder as this HTML).
 const __SFX_FILES = {
   orb: "orb.mp3",
+ photon: "barrage.mp3",
+  plasma: "barrage.mp3",
+  beams: "barrage.mp3",
+  shrapnel: "barrage.mp3",
+  cutter: "barrage.mp3",
+  burst: "barrage.mp3",
+  nova: "barrage.mp3",
+  orbital: "barrage.mp3",
+  barrage: "barrage.mp3",
+  spiral: "barrage.mp3",
+  singularity: "barrage.mp3",
+  piercer: "barrage.mp3",
 };
 // Per-ability SFX mapping (filled lazily so you can customize individually later).
 // Example later: ABILITY_SFX["wave_cannon"] = "beam";
 const ABILITY_SFX = Object.create(null);
 
+ // --- Per-super SFX mappings ---
+ABILITY_SFX["energy_orb"]        = "photon";
+ABILITY_SFX["wave_cannon"]       = "plasma";
+ABILITY_SFX["dual_beam"]         = "beams";
+ABILITY_SFX["scatter_shot"]      = "shrapnel";
+ABILITY_SFX["energy_disc"]       = "cutter";
+ABILITY_SFX["big_blast"]         = "burst";
+ABILITY_SFX["aura_nova"]         = "nova";
+ABILITY_SFX["sky_barrage"]       = "orbital";
+ABILITY_SFX["rapid_ki_barrage"]  = "barrage";
+ABILITY_SFX["nova_spiral"]       = "spiral";
+ABILITY_SFX["gravity_crush"]     = "singularity";
+ABILITY_SFX["special_beam"]      = "piercer";
+ 
 const __SFX_POOL_SIZE = 10;
 const __sfxPools = Object.create(null);
 
