@@ -1335,7 +1335,7 @@ function emitTrail(x,y, hueBase, density=1){
  addEffectRing(e.x,e.y, e.r+12, 340, e.hue);
  emitParticles(e.x, e.y, e.isElite ? 78 : 54, e.hue, 140, 560, 440, 1180, 1.4, 4.0, 1.25);
 
- // Death Bloom (rare): enemies explode on death
+ // Nuclear Bloom (rare): enemies explode on death
  if(state._deathBloom){
   const R = 55;
   const dmg = Math.round(state.player.basePow * 0.6);
@@ -1393,7 +1393,7 @@ function emitTrail(x,y, hueBase, density=1){
    state.player.hp = clamp(state.player.hp - dmgLeft, 0, state.player.maxHp);
  }
 
- // Reactive Barrier (rare)
+ // Electron Shell (rare)
  if(state._reactiveBarrier && state._reactiveBarrierCd <= 0){
    const hpPct = state.player.hp / Math.max(1, state.player.maxHp);
    if(hpPct <= 0.40){
@@ -1403,7 +1403,7 @@ function emitTrail(x,y, hueBase, density=1){
      addEffectRing(state.player.x, state.player.y, 52, 360, 190);
      addEffectRing(state.player.x, state.player.y, 78, 360, 210);
      emitParticles(state.player.x, state.player.y, 90, 200, 160, 720, 420, 1350, 1.2, 5.2, 1.30);
-     showToast("Reactive Barrier!");
+     showToast("Electron Shell!");
    }
  }
 
@@ -1479,7 +1479,7 @@ const r = isEliteFinal ? rand(16, 22) : rand(11, 17);
  // IMPORTANT: Each copy must run on its own timer (staggered), so stacks don't fire in-sync.
  const existingSame = state.autoAbilities.reduce((n,a)=> n + (a.id===id ? 1 : 0), 0);
 
- // Stagger each additional copy slightly so an "Energy Orb x3" build feels like a stream, not a single burst.
+ // Stagger each additional copy slightly so an "Photon Orb x3" build feels like a stream, not a single burst.
  const STAGGER_MS = 240; // tuned: noticeable separation without feeling slow
  const jitter = rand(-35, 35);
  const initialDelay = existingSame * STAGGER_MS + jitter;
@@ -1799,7 +1799,7 @@ renderUpgradeChoices(pickIds);
  const candidates = [];
  for(const def of allDefs){
  if(state._banished && state._banished[def.id]) continue;
- // Overcharge Slot can only be taken twice
+ // Overclocked Core can only be taken twice
  if(def.id === "up_extrasuper" && (state._extraSuperSlots||0) >= 2) continue;
  // Allow active duplicates (multiple copies of the same super).
  if(def.kind !== "active"){
@@ -2043,7 +2043,7 @@ function pickUpgrade(id){
 
  // Supers inspired by DB (generic names)
  makeAbilityDef({
- id:"energy_orb", name:"Energy Orb",
+ id:"energy_orb", name:"Photon Orb",
  desc:"Rapid-fire orb at the nearest enemy.",
  icon:"🔹", hue:205, cooldownMs:520, kind:"active", rarity:1, weight:0.45,
  onUse: ()=>{
@@ -2057,7 +2057,7 @@ function pickUpgrade(id){
  });
 
  makeAbilityDef({
- id:"wave_cannon", name:"Energy Wave",
+ id:"wave_cannon", name:"Plasma Wave",
  desc:"A piercing energy wave through multiple enemies.",
  icon:"🟦", hue:200, cooldownMs:2400, kind:"active", rarity:2,
  onUse: ()=>{
@@ -2070,7 +2070,7 @@ function pickUpgrade(id){
  });
 
  makeAbilityDef({
- id:"dual_beam", name:"Dual Beam",
+ id:"dual_beam", name:"Binary Fission Beams",
  desc:"Two beams split to hit two nearest targets.",
  icon:"🔱", hue:320, cooldownMs:2800, kind:"active", rarity:2,
  onUse: ()=>{
@@ -2090,7 +2090,7 @@ function pickUpgrade(id){
  });
 
  makeAbilityDef({
- id:"scatter_shot", name:"Scatter Shot",
+ id:"scatter_shot", name:"Ion Shrapnel",
  desc:"Sprays a fan of mini-orbs.",
  icon:"💠", hue:175, cooldownMs:1700, kind:"active", rarity:2,
  onUse: ()=>{
@@ -2128,7 +2128,7 @@ function pickUpgrade(id){
  });
 
  makeAbilityDef({
- id:"big_blast", name:"Big Blast",
+ id:"big_blast", name:"Fission Burst",
  desc:"Heavy orb that detonates for splash damage.",
  icon:"🟠", hue:25, cooldownMs:3600, kind:"active", rarity:3,
  onUse: ()=>{
@@ -2151,7 +2151,7 @@ function pickUpgrade(id){
  });
 
  makeAbilityDef({
- id:"aura_nova", name:"Aura Nova",
+ id:"aura_nova", name:"Atomic Nova",
  desc:"Explodes around you when enemies are nearby.",
  icon:"💥", hue:140, cooldownMs:3300, kind:"active", rarity:2,
  onUse: ()=>{
@@ -2179,7 +2179,7 @@ function pickUpgrade(id){
  
 
  makeAbilityDef({
- id:"sky_barrage", name:"Sky Barrage",
+ id:"sky_barrage", name:"Orbital Ion Strike",
  desc:"Calls down a rain of energy strikes near your target.",
  icon:"🌠", hue:6, cooldownMs:4200, kind:"active", rarity:4,
  onUse: ()=>{
@@ -2211,8 +2211,8 @@ function pickUpgrade(id){
  // NEW Supers / Rares
 
  makeAbilityDef({
-  id:"rapid_ki_barrage", name:"Rapid Ki Barrage",
-  desc:"4-shot burst. Cooldown is faster while Energy Orb is equipped.",
+  id:"rapid_ki_barrage", name:"Neutron Barrage",
+  desc:"4-shot burst. Cooldown is faster while Photon Orb is equipped.",
   icon:"🟡", hue:52, cooldownMs:3200, cooldownFn: ()=>{
     const hasOrb = state.autoAbilities.some(a=>a.id==="energy_orb");
     return hasOrb ? 2200 : 3200;
@@ -2271,7 +2271,7 @@ function pickUpgrade(id){
  });
 
  makeAbilityDef({
-  id:"gravity_crush", name:"Gravity Crush",
+  id:"gravity_crush", name:"Singularity Collapse",
   desc:"Creates a gravity well, pulls enemies, then collapses in a crushing blast.",
   icon:"🟣", hue:280, cooldownMs:4800, kind:"active", rarity:4,
     onUse: ()=>{
@@ -2318,17 +2318,17 @@ function pickUpgrade(id){
 
  // RARE Passives
  makeAbilityDef({
-  id:"reactive_barrier", name:"Reactive Barrier",
+  id:"reactive_barrier", name:"Electron Shell",
   desc:"When hit below 40% HP: gain a shield (18% max HP). Cooldown 25s.",
   icon:"🛡️", hue:195, kind:"passive", rarity:5,
   onPick: ()=>{
     state._reactiveBarrier = true;
-    showToast("Reactive Barrier equipped");
+    showToast("Electron Shell equipped");
   }
  });
 
  makeAbilityDef({
-  id:"glass_cannon_core", name:"Glass Cannon Core",
+  id:"glass_cannon_core", name:"Unstable Isotope Core",
   desc:"+28% damage, -15% max HP.",
   icon:"💠", hue:18, kind:"passive", rarity:5,
   onPick: ()=>{
@@ -2336,30 +2336,30 @@ function pickUpgrade(id){
     state._dmgBonus = (state._dmgBonus||0) + 0.28;
     state.player.maxHp = Math.max(1, Math.round(state.player.maxHp * 0.85));
     state.player.hp = Math.min(state.player.hp, state.player.maxHp);
-    showToast("Glass Cannon Core equipped");
+    showToast("Unstable Isotope Core equipped");
   }
  });
 
  makeAbilityDef({
-  id:"death_bloom", name:"Death Bloom",
+  id:"death_bloom", name:"Nuclear Bloom",
   desc:"Enemies explode on death (small AoE).",
   icon:"🌸", hue:320, kind:"passive", rarity:5,
   onPick: ()=>{
     state._deathBloom = true;
-    showToast("Death Bloom equipped");
+    showToast("Nuclear Bloom equipped");
   }
  });
 
 
 // Passives
- makeAbilityDef({ id:"up_pow", name:"+Power", desc:"Increase power by +3.", icon:"🟥", hue: 8, kind:"passive", weight:0.60, rarity:1, onPick:()=>{ state.player.basePow += 3; } });
- makeAbilityDef({ id:"up_hp", name:"+Max HP", desc:"Increase max HP by +20 (heal +20).", icon:"🟩", hue: 150, kind:"passive", weight:0.60, rarity:1, onPick:()=>{ state.player.maxHp += 20; state.player.hp = clamp(state.player.hp + 20, 0, state.player.maxHp); }});
- makeAbilityDef({ id:"up_crit", name:"+Crit", desc:"Increase crit chance by +5%.", icon:"🟨", hue: 55, kind:"passive", rarity:2, onPick:()=>{ state.player.crit = clamp(state.player.crit + 0.05, 0, 0.60); }});
- makeAbilityDef({ id:"up_regen", name:"+Regen", desc:"Increase HP regen +0.8/s.", icon:"🟢", hue: 290, kind:"passive", rarity:2, onPick:()=>{ state.player.regenHp += 0.8; }});
- makeAbilityDef({ id:"up_armor", name:"Iron Guard", desc:"Reduce incoming damage by 12% (stacks).", icon:"🛡️", hue: 190, kind:"passive", rarity:3, onPick:()=>{ state.player.armor = clamp(state.player.armor + 0.12, 0, 0.65); }});
- makeAbilityDef({ id:"up_xp", name:"Training Boost", desc:"Gain +25% XP from kills.", icon:"📈", hue: 110, kind:"passive", rarity:2, onPick:()=>{ state._xpMult *= 1.08; }});
+ makeAbilityDef({ id:"up_pow", name:"Fission Output", desc:"Increase power by +3.", icon:"🟥", hue: 8, kind:"passive", weight:0.60, rarity:1, onPick:()=>{ state.player.basePow += 3; } });
+ makeAbilityDef({ id:"up_hp", name:"Expanded Nucleus", desc:"Increase max HP by +20 (heal +20).", icon:"🟩", hue: 150, kind:"passive", weight:0.60, rarity:1, onPick:()=>{ state.player.maxHp += 20; state.player.hp = clamp(state.player.hp + 20, 0, state.player.maxHp); }});
+ makeAbilityDef({ id:"up_crit", name:"Critical Mass", desc:"Increase crit chance by +5%.", icon:"🟨", hue: 55, kind:"passive", rarity:2, onPick:()=>{ state.player.crit = clamp(state.player.crit + 0.05, 0, 0.60); }});
+ makeAbilityDef({ id:"up_regen", name:"Atomic Regeneration", desc:"Increase HP regen +0.8/s.", icon:"🟢", hue: 290, kind:"passive", rarity:2, onPick:()=>{ state.player.regenHp += 0.8; }});
+ makeAbilityDef({ id:"up_armor", name:"Neutron Shield", desc:"Reduce incoming damage by 12% (stacks).", icon:"🛡️", hue: 190, kind:"passive", rarity:3, onPick:()=>{ state.player.armor = clamp(state.player.armor + 0.12, 0, 0.65); }});
+ makeAbilityDef({ id:"up_xp", name:"Particle Acceleration", desc:"Gain +25% XP from kills.", icon:"📈", hue: 110, kind:"passive", rarity:2, onPick:()=>{ state._xpMult *= 1.08; }});
  makeAbilityDef({
- id:"special_beam", name:"Piercing Cannon",
+ id:"special_beam", name:"Quark Piercer",
  desc:"A piercing lance beam that drills through enemies in a line.",
  icon:"🟢", hue: 110, cooldownMs:5200, kind:"active", rarity:3,
  onUse: ()=>{
@@ -2384,7 +2384,7 @@ function pickUpgrade(id){
 
 makeAbilityDef({
   id:"up_extrasuper",
-  name:"Overcharge Slot",
+  name:"Overclocked Core",
   desc:"Gain +1 Super slot (max +2 total).",
   icon:"➕", hue: 120, kind:"passive", rarity:5,
   onPick:()=>{
@@ -2395,7 +2395,7 @@ makeAbilityDef({
   }
 });
 
-makeAbilityDef({ id:"up_fastcast", name:"Fast Hands", desc:"Reduce super cooldowns by 12%.", icon:"⏱️", hue: 320, kind:"passive", rarity:3, onPick:()=>{ state._cdr *= 0.88; }});
+makeAbilityDef({ id:"up_fastcast", name:"Quantum Reflexes", desc:"Reduce super cooldowns by 12%.", icon:"⏱️", hue: 320, kind:"passive", rarity:3, onPick:()=>{ state._cdr *= 0.88; }});
  
 
  function resetRun(){
@@ -2625,7 +2625,7 @@ function spawnLogic(dt){
  }
  state.orbitals = state.orbitals.filter(o => o.t < o.life);
 
- // Gravity Crush wells
+ // Singularity Collapse wells
  for(const g of state.gravityWells){
    g.t += dt;
    // pull phase
