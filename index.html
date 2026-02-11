@@ -2539,7 +2539,8 @@ state.enemies = [];
 function startRun(){
  hideTitleScreen();
  // swap from title music to gameplay playlist
- music.playGame(true);
+ // Ensure audio is unlocked in the same user gesture (mobile/desktop autoplay policies)
+ music.unlock().then(()=> music.playGame(true));
  state.hasStarted = true;
  resetRun();
 
